@@ -421,13 +421,27 @@
       💡 <span>Hãy <strong style="color:var(--primary);">tải toàn bộ dữ liệu về</strong> trước khi chỉnh sửa để có thông tin cập nhật gần nhất — nhấn <strong style="color:var(--primary);">☁️ Đồng bộ → Tải về</strong> trên thanh tiêu đề.</span>
     </div>
 
+    <!-- PANEL QUẢN LÝ NHÓM — chỉ hiện khi lọc theo 1 đơn vị -->
+    <div id="nhom-panel" style="display:none;margin-bottom:16px;">
+      <div class="card" style="padding:16px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+          <div style="font-size:14px;font-weight:700;color:var(--primary);">📁 Nhóm nội bộ</div>
+          <button id="btn-tao-nhom" class="btn btn-primary btn-sm" onclick="openModalNhom(null)" style="display:none;">➕ Tạo nhóm</button>
+        </div>
+        <div id="nhom-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <!-- Được render bởi renderNhomPanel() -->
+        </div>
+        <div id="nhom-empty" style="display:none;font-size:13px;color:var(--text-light);font-style:italic;">Chưa có nhóm nào. <span id="nhom-empty-hint"></span></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="btn-group" style="flex-wrap:wrap;gap:8px;">
         <button class="btn btn-primary" onclick="openModalNV()">➕ Thêm nhân viên</button>
       </div>
       <div class="search-bar">
         <input class="search-input" id="search-nv" type="text" placeholder="Tìm theo danh số, họ và tên, chức danh..." oninput="renderTableNV()">
-        <select id="filter-bp" onchange="renderTableNV()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13.5px;">
+        <select id="filter-bp" onchange="onFilterBPChange()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13.5px;">
           <option value="">-- Tất cả đơn vị --</option>
           <option value="Cảng biển">Cảng biển</option>
           <option value="Căn cứ Kho - Giao nhận">Căn cứ Kho - Giao nhận</option>
@@ -437,19 +451,24 @@
         </select>
       </div>
       <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th style="width:40px;text-align:center;">STT</th>
-            <th>Danh số</th>
-            <th>Họ và Tên</th>
-            <th>Chức danh</th>
-            <th>Đơn vị</th>
-            <th style="text-align:center;min-width:80px;">🧥 Quần áo</th>
-            <th style="text-align:center;min-width:80px;">👟 Giày</th>
-            <th style="text-align:center;min-width:80px;">⛑️ Nón</th>
-            <th style="text-align:center;min-width:80px;">🥽 Kính</th>
-            <th style="text-align:center;">Thao tác</th>
-          </tr></thead>
+        <table id="table-nv">
+          <thead>
+            <tr id="thead-nv-row">
+              <th rowspan="2" style="width:40px;text-align:center;">STT</th>
+              <th rowspan="2">Danh số</th>
+              <th rowspan="2">Họ và Tên</th>
+              <th rowspan="2">Chức danh</th>
+              <th rowspan="2" id="th-donvi-or-nhom">Đơn vị</th>
+              <th colspan="4" style="text-align:center;background:#d0e4f7;color:var(--primary);font-size:11px;padding:5px 8px;letter-spacing:0.3px;">📅 LẦN CẤP GẦN NHẤT</th>
+              <th rowspan="2" style="text-align:center;">Thao tác</th>
+            </tr>
+            <tr>
+              <th style="text-align:center;min-width:80px;">🧥 Quần áo</th>
+              <th style="text-align:center;min-width:80px;">👟 Giày</th>
+              <th style="text-align:center;min-width:80px;">⛑️ Nón</th>
+              <th style="text-align:center;min-width:80px;">🥽 Kính</th>
+            </tr>
+          </thead>
           <tbody id="tbody-nv"></tbody>
         </table>
       </div>
@@ -463,7 +482,7 @@
     <div class="page-title">🗂️ Danh mục BHLĐ & PTBCN</div>
     <div class="card">
       <div class="btn-group">
-        <button class="btn btn-primary" onclick="openModalDM()">➕ Thêm trang bị</button>
+        <button class="btn btn-primary" onclick="openModalDM()" style="display:none;">➕ Thêm trang bị</button>
       </div>
       <div class="search-bar">
         <input class="search-input" id="search-dm" type="text" placeholder="Tìm theo tên, mã vật tư, nhóm..." oninput="renderTableDM()">
@@ -501,7 +520,7 @@
     </div>
     <div class="card">
       <div class="btn-group">
-        <button class="btn btn-primary" onclick="openModalDinhMuc()">➕ Thêm định mức</button>
+        <button class="btn btn-primary" onclick="openModalDinhMuc()" style="display:none;">➕ Thêm chức danh mới</button>
       </div>
       <div class="search-bar" style="margin-bottom:14px;">
         <input class="search-input" id="search-dinhmuc" type="text" placeholder="Tìm theo chức danh..." oninput="renderTableDinhMuc()">
@@ -509,7 +528,7 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Trang bị BHLĐ</th><th>Chu kỳ cấp lại</th><th>Thao tác</th>
+            <th>Trang bị BHLĐ</th><th style="width:80px;text-align:center;">SL/lần</th><th style="width:120px;text-align:center;">Chu kỳ cấp lại</th><th style="width:100px;">Thao tác</th>
           </tr></thead>
           <tbody id="tbody-dinhmuc"></tbody>
         </table>
@@ -575,119 +594,119 @@
   <div id="page-huong-dan" class="page">
     <div class="page-title">📖 Hướng dẫn sử dụng</div>
 
-    <!-- CÁC CHỨC NĂNG CHÍNH -->
+    <!-- NGƯỜI XEM -->
     <div class="card">
-      <h3 style="color:var(--primary);margin-bottom:16px;">🗂️ Các chức năng chính</h3>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-
-        <div style="display:flex;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;align-items:flex-start;">
-          <span style="font-size:24px;min-width:32px;">👷</span>
-          <div>
-            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">Nhân viên</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.7;">
-              Quản lý danh sách nhân sự toàn xí nghiệp. Mỗi nhân viên cần điền đầy đủ:
-              <strong>danh số, họ tên, chức danh, đơn vị, cỡ quần áo, cỡ giày/ủng</strong> và
-              thông tin tháng cấp gần nhất (nếu là nhân viên cũ) để hệ thống tính lịch cấp chính xác.
-            </div>
-          </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <span style="font-size:32px;">👁️</span>
+        <div>
+          <h3 style="color:var(--primary);margin:0;">Người xem</h3>
+          <div style="font-size:12.5px;color:var(--text-light);margin-top:2px;">Không cần đăng nhập — truy cập trực tiếp vào hệ thống</div>
         </div>
-
-        <div style="display:flex;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;align-items:flex-start;">
-          <span style="font-size:24px;min-width:32px;">🗂️</span>
-          <div>
-            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">Danh mục BHLĐ</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.7;">
-              Danh sách tất cả trang bị BHLĐ &amp; PTBVCN của xí nghiệp, bao gồm mã vật tư, tên, loại và đơn vị tính.
-              Các trang bị có cỡ (quần áo, giày) được nhóm lại theo nhóm để dễ quản lý.
-              <em>Chức năng này do Admin quản lý, người dùng thường không cần chỉnh sửa.</em>
-            </div>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;align-items:flex-start;">
-          <span style="font-size:24px;min-width:32px;">📋</span>
-          <div>
-            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">Định mức cấp phát</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.7;">
-              Quy định mỗi <strong>chức danh</strong> được cấp những trang bị nào và với chu kỳ bao lâu (tháng).
-              Đây là cơ sở để hệ thống tự động tính báo cáo cấp phát theo quý.
-              <em>Chức năng này do Admin quản lý.</em>
-            </div>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;align-items:flex-start;">
-          <span style="font-size:24px;min-width:32px;">📊</span>
-          <div>
-            <div style="font-weight:700;color:var(--primary);margin-bottom:4px;">Báo cáo cấp phát theo quý</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.7;">
-              Tự động tính toán và hiển thị danh sách trang bị cần cấp phát trong quý được chọn.
-              Bao gồm: danh sách từng nhân viên với trang bị cụ thể (kèm cỡ), và bảng tổng hợp
-              số lượng toàn đơn vị kèm mã vật tư. Có thể <strong>Xuất CSV</strong> để dùng trong Excel.
-            </div>
-          </div>
-        </div>
-
       </div>
-    </div>
-
-    <!-- HƯỚNG DẪN TỪNG BƯỚC -->
-    <div class="card">
-      <h3 style="color:var(--primary);margin-bottom:16px;">🚀 Hướng dẫn sử dụng cho từng đơn vị</h3>
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div class="alert alert-success">
-          <span style="font-size:20px;min-width:28px;">1️⃣</span>
-          <div><strong>Nhận file và mở bằng trình duyệt</strong> – Tải file <code style="background:#d4edda;padding:1px 5px;border-radius:3px;">quan-ly-bhlđ-share.html</code> về máy. Mở bằng <strong>Google Chrome hoặc Microsoft Edge</strong> (không dùng Internet Explorer). Không cần cài thêm phần mềm nào.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.8;color:var(--text);">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>📊</span>
+          <div><strong>Xem Tổng quan</strong> — Theo dõi số lượng nhân viên, tình trạng tồn kho BHLĐ và các chỉ số tổng hợp toàn xí nghiệp.</div>
         </div>
-        <div class="alert alert-success">
-          <span style="font-size:20px;min-width:28px;">2️⃣</span>
-          <div><strong>Nhập thông tin nhân viên của đơn vị</strong> – Vào menu <strong>"Nhân viên"</strong> → Nhấn <strong>"➕ Thêm nhân viên"</strong> → Điền đầy đủ thông tin. Lưu ý điền chính xác <strong>cỡ quần áo, cỡ giày/ủng</strong> và <strong>tháng cấp gần nhất</strong> để báo cáo tính đúng.</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>👷</span>
+          <div><strong>Xem danh sách Nhân viên</strong> — Tra cứu toàn bộ nhân viên theo đơn vị, chức danh, tên hoặc danh số. Xem thông tin lần cấp gần nhất của từng người.</div>
         </div>
-        <div class="alert alert-success">
-          <span style="font-size:20px;min-width:28px;">3️⃣</span>
-          <div><strong>Đồng bộ dữ liệu lên hệ thống chung</strong> – Sau khi nhập xong, bấm nút <strong>"☁️ Đồng bộ"</strong> ở góc trên phải → bấm <strong>"📤 Đẩy lên"</strong>. Thông báo ✅ xuất hiện là dữ liệu đã được gửi thành công. Báo lại cho Admin để tổng hợp.</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>🗂️</span>
+          <div><strong>Xem Danh mục BHLĐ</strong> — Tra cứu trang bị BHLĐ &amp; PTBVCN, mã vật tư, loại và đơn vị tính.</div>
         </div>
-        <div class="alert alert-success">
-          <span style="font-size:20px;min-width:28px;">4️⃣</span>
-          <div><strong>Cập nhật khi có thay đổi nhân sự</strong> – Khi có nhân viên mới, nghỉ việc, hoặc thay đổi thông tin, chỉnh sửa trong mục "Nhân viên" rồi bấm <strong>"📤 Đẩy lên"</strong> lại để cập nhật lên hệ thống chung.</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>📋</span>
+          <div><strong>Xem Định mức cấp phát</strong> — Tra cứu định mức trang bị theo từng chức danh (loại trang bị, số lượng, chu kỳ cấp).</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>📈</span>
+          <div><strong>Xem và xuất Báo cáo cấp phát</strong> — Xem phiếu yêu cầu cấp phát theo từng quý và từng đơn vị, xuất file CSV để dùng trong Excel.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>📦</span>
+          <div><strong>Xem Tồn kho</strong> — Tra cứu số lượng tồn kho hiện tại, lịch sử nhập/xuất BHLĐ.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f7f9fc;border-radius:8px;">
+          <span>🔄</span>
+          <div><strong>Tải dữ liệu về</strong> — Lấy dữ liệu mới nhất từ Google Sheets về máy để xem thông tin cập nhật. Hệ thống cũng tự động tải về khi mở trang.</div>
         </div>
       </div>
     </div>
 
-    <!-- ĐỒNG BỘ DỮ LIỆU -->
+    <!-- TÀI KHOẢN ĐƠN VỊ -->
     <div class="card">
-      <h3 style="color:var(--primary);margin-bottom:14px;">☁️ Về đồng bộ dữ liệu (Google Sheets)</h3>
-      <div style="font-size:13.5px;line-height:1.9;color:var(--text);margin-bottom:14px;">
-        Dữ liệu của tất cả đơn vị được lưu tập trung trên <strong>Google Sheets</strong> do Admin quản lý.
-        Mỗi máy tính có bản sao dữ liệu riêng trong trình duyệt (localStorage), và đồng bộ hai chiều thông qua nút <strong>"☁️ Đồng bộ"</strong>.
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:#eef3fb;border-radius:8px;padding:12px;font-size:13px;">
-          <div style="font-weight:700;color:var(--primary);margin-bottom:6px;">📤 Đẩy lên</div>
-          Gửi nhân sự đơn vị bạn lên Sheets, tự động <strong>gộp</strong> với dữ liệu các đơn vị khác (không xóa dữ liệu của người khác).
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <span style="font-size:32px;">🏢</span>
+        <div>
+          <h3 style="color:var(--primary);margin:0;">Tài khoản đơn vị</h3>
+          <div style="font-size:12.5px;color:var(--text-light);margin-top:2px;">Đăng nhập bằng email và mật khẩu do Admin cấp — có thêm các quyền chỉnh sửa dữ liệu đơn vị mình</div>
         </div>
-        <div style="background:#eef3fb;border-radius:8px;padding:12px;font-size:13px;">
-          <div style="font-weight:700;color:var(--primary);margin-bottom:6px;">🔄 Tải về</div>
-          Tải toàn bộ dữ liệu từ Sheets về máy, <strong>ghi đè</strong> dữ liệu hiện tại. Dùng khi muốn xem dữ liệu tổng hợp của tất cả đơn vị.
+      </div>
+      <div style="font-size:13px;color:var(--text-light);margin-bottom:12px;padding:8px 12px;background:#fff3cd;border-radius:6px;">
+        ✅ Có tất cả quyền của Người xem, cộng thêm:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.8;color:var(--text);">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f0faf4;border-radius:8px;">
+          <span>➕</span>
+          <div><strong>Thêm, sửa, xóa nhân viên</strong> — Chỉ được thao tác với nhân viên thuộc đơn vị mình. Không thể chỉnh sửa nhân viên của đơn vị khác.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f0faf4;border-radius:8px;">
+          <span>↕️</span>
+          <div><strong>Sắp xếp thứ tự (STT) nhân viên</strong> — Kéo thả để thay đổi vị trí nhân viên trong danh sách. Thứ tự này sẽ được gửi kèm khi gửi yêu cầu duyệt.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f0faf4;border-radius:8px;">
+          <span>📁</span>
+          <div><strong>Tạo và quản lý nhóm nội bộ</strong> — Tạo nhóm tùy ý (VD: Tổ cẩu, Ca ngày, Nhóm A...) để phân loại nhân viên trong đơn vị. Có thể đổi tên, xóa nhóm và gán từng nhân viên vào nhóm phù hợp.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f0faf4;border-radius:8px;">
+          <span>📨</span>
+          <div><strong>Gửi yêu cầu duyệt cho Admin</strong> — Sau khi hoàn tất chỉnh sửa (thêm người, cập nhật thông tin, sắp xếp lại...), gửi toàn bộ dữ liệu đơn vị cho Admin xem xét và duyệt trước khi áp dụng lên hệ thống chung.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#f0faf4;border-radius:8px;">
+          <span>🔑</span>
+          <div><strong>Quản lý tài khoản cá nhân</strong> — Đổi mật khẩu đăng nhập của tài khoản đơn vị.</div>
         </div>
       </div>
     </div>
 
-    <!-- LƯU Ý DỮ LIỆU -->
+    <!-- QUẢN TRỊ VIÊN -->
     <div class="card">
-      <h3 style="color:var(--primary);margin-bottom:12px;">⚠️ Lưu ý quan trọng về dữ liệu</h3>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div class="alert alert-warning">
-          <span>⚠️</span>
-          <div>Dữ liệu trên máy được lưu trong <strong>bộ nhớ trình duyệt (localStorage)</strong>. Nếu <strong>xóa lịch sử trình duyệt</strong> hoặc dùng trình duyệt khác, dữ liệu trên máy sẽ mất. Hãy <strong>đẩy lên Google Sheets</strong> thường xuyên để tránh mất dữ liệu.</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <span style="font-size:32px;">🔐</span>
+        <div>
+          <h3 style="color:var(--primary);margin:0;">Quản trị viên (Admin)</h3>
+          <div style="font-size:12.5px;color:var(--text-light);margin-top:2px;">Đăng nhập bằng mật khẩu quản trị — toàn quyền trên toàn bộ hệ thống</div>
         </div>
-        <div class="alert alert-warning">
-          <span>⚠️</span>
-          <div>Mỗi nhân viên cần có <strong>danh số (mã NV) duy nhất</strong>. Khi đồng bộ, hệ thống nhận diện nhân viên qua danh số — nếu 2 đơn vị nhập cùng 1 danh số, bản mới nhất sẽ ghi đè bản cũ.</div>
+      </div>
+      <div style="font-size:13px;color:var(--text-light);margin-bottom:12px;padding:8px 12px;background:#fff3cd;border-radius:6px;">
+        ✅ Có tất cả quyền của Người xem và Tài khoản đơn vị (với mọi đơn vị), cộng thêm:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.8;color:var(--text);">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>✅</span>
+          <div><strong>Duyệt hoặc từ chối yêu cầu từ đơn vị</strong> — Xem chi tiết thay đổi (thêm người, cập nhật thông tin, đổi thứ tự...) so với dữ liệu hiện tại, sau đó duyệt để áp dụng hoặc từ chối. Khi duyệt, dữ liệu tự động đồng bộ lên Google Sheets ngay lập tức.</div>
         </div>
-        <div class="alert alert-warning">
-          <span>⚠️</span>
-          <div>Chỉ bấm <strong>"Đẩy tất cả (Admin)"</strong> khi bạn là Admin và muốn đồng bộ cả Danh mục &amp; Định mức. Thao tác này sẽ ghi đè toàn bộ dữ liệu trên Sheets.</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>🗂️</span>
+          <div><strong>Quản lý Danh mục BHLĐ</strong> — Thêm, sửa, xóa trang bị trong danh mục (mã vật tư, tên, loại, đơn vị tính). Đơn vị không có quyền này.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>📋</span>
+          <div><strong>Quản lý Định mức cấp phát</strong> — Thêm, sửa, xóa định mức cho từng chức danh (loại trang bị, số lượng/lần cấp, chu kỳ tháng). Đơn vị không có quyền này.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>📦</span>
+          <div><strong>Nhập/Xuất kho BHLĐ</strong> — Ghi nhận số lượng nhập vào kho và xuất ra cấp phát cho nhân viên, theo dõi lịch sử giao dịch tồn kho.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>📤</span>
+          <div><strong>Đẩy toàn bộ dữ liệu lên Google Sheets</strong> — Đồng bộ tất cả dữ liệu (nhân viên, danh mục, định mức, tồn kho, nhóm) lên Sheets trong một lần nhấn. Thao tác này ghi đè dữ liệu trên Sheets bằng dữ liệu máy Admin.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#fff0f0;border-radius:8px;">
+          <span>👤</span>
+          <div><strong>Quản lý tài khoản đơn vị</strong> — Phê duyệt hoặc từ chối đăng ký tài khoản mới, xem danh sách toàn bộ tài khoản đơn vị trong hệ thống.</div>
         </div>
       </div>
     </div>
@@ -817,7 +836,16 @@
       <div class="admin-tab" id="tk-tab-xuat"    onclick="switchTonKhoTab('xuat')">📤 Lịch sử xuất</div>
     </div>
 
-    <div id="tk-panel-hientai" style="padding-top:16px;"></div>
+    <div id="tk-search-bar" style="padding:12px 0 0;">
+      <input id="tk-search-input" type="text"
+        placeholder="🔍 Tìm theo tên vật tư..."
+        oninput="filterTonKhoBang(this.value)"
+        style="width:100%;max-width:360px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;outline:none;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--primary-light)'"
+        onblur="this.style.borderColor='var(--border)'">
+    </div>
+
+    <div id="tk-panel-hientai" style="padding-top:12px;"></div>
     <div id="tk-panel-nhap"    style="padding-top:16px;display:none;"></div>
     <div id="tk-panel-xuat"    style="padding-top:16px;display:none;"></div>
   </div>
@@ -1161,7 +1189,7 @@
 <div id="modal-dinhmuc" class="modal-overlay">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title">Thêm định mức cấp phát</span>
+      <span class="modal-title" id="modal-dinhmuc-title">Thêm định mức cấp phát</span>
       <button class="modal-close" onclick="closeModal('modal-dinhmuc')">×</button>
     </div>
     <div class="form-grid">
@@ -1192,6 +1220,28 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-dinhmuc')">Hủy</button>
       <button class="btn btn-primary" onclick="saveDinhMuc()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: TẠO / ĐỔI TÊN NHÓM ===== -->
+<div id="modal-nhom" class="modal-overlay">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-nhom-title">Tạo nhóm mới</span>
+      <button class="modal-close" onclick="closeModal('modal-nhom')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Tên nhóm *</label>
+        <input id="nhom-ten-input" type="text" placeholder="VD: Tổ cẩu, Ca ngày, Nhóm A..."
+          maxlength="40" onkeydown="if(event.key==='Enter') saveNhom()">
+        <div style="font-size:11.5px;color:var(--text-light);margin-top:4px;">Tối đa 40 ký tự</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-nhom')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveNhom()">💾 Lưu</button>
     </div>
   </div>
 </div>
@@ -1505,15 +1555,17 @@ let daDanhMuc = loadData('danhmuc', DEFAULT_DANH_MUC);
 let daDinhMuc = loadData('dinhmuc', DEFAULT_DINH_MUC);
 let daTonKho     = loadData('tonkho',        {});  // {tbId: currentQty}
 let daTonKhoLichSu = loadData('tonkho-lichsu', []); // mảng giao dịch nhập/xuất
+let daGroups   = loadData('nhom-nv', []);  // [{id, ten, donVi}] — nhóm nội bộ trong đơn vị
 
 // Migration: thêm các trường còn thiếu cho nhân viên cũ
 daNhanVien = daNhanVien.map(n => ({
   loaiNV: 'cu', thangCapQuanAo: '', thangCapGiay: '', thangCapNon: '', thangCapKinh: '',
+  nhomId: null,   // nhóm nội bộ trong đơn vị (null = chưa xếp nhóm)
   ...n
 }));
 saveData('nhanvien', daNhanVien);
 
-let editingIds = { nv: null, dm: null };
+let editingIds = { nv: null, dm: null, dinhmuc: null, nhom: null };
 
 function nextId(arr) {
   return arr.length === 0 ? 1 : Math.max(...arr.map(x => x.id)) + 1;
@@ -1599,7 +1651,15 @@ function showToast(msg, type='success') {
   setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  // Reset trường disabled trong modal định mức khi đóng
+  if (id === 'modal-dinhmuc') {
+    const el = document.getElementById('dm2-chucdarnh');
+    if (el) el.disabled = false;
+    editingIds.dinhmuc = null;
+  }
+}
 
 // =====================================================
 //  DASHBOARD
@@ -1737,10 +1797,9 @@ function _fThang(yyyymm) {
   return `<span style="font-size:12.5px;color:var(--text);">T${parseInt(m)}/${y}</span>`;
 }
 
-function _nvRow(n, idx, showDrag) {
+function _nvRow(n, idx, showDrag, showNhomCol, donViFilter) {
   const canEdit = !isViewOnly() && (!_currentUnitUser || n.boPhan === _currentUnitUser.donVi);
   const draggable = showDrag && canEdit;
-  // Dùng data-nv-id thay vì inline handlers — event delegation xử lý ở _initNVDragListeners()
   const dragAttrs = draggable ? `draggable="true" data-nv-id="${n.id}"` : '';
   const actionBtns = canEdit
     ? `<button class="btn btn-outline btn-sm" onclick="editNV(${n.id})">✏️</button>
@@ -1750,29 +1809,52 @@ function _nvRow(n, idx, showDrag) {
     ? `<td style="text-align:center;color:var(--text-light);font-size:13px;cursor:grab;user-select:none;" title="Kéo để sắp xếp">⠿ ${idx + 1}</td>`
     : `<td style="text-align:center;color:var(--text-light);font-size:13px;">${idx + 1}</td>`;
 
-  // Icon giới tính — chỉ hiện cho nữ, đặt sau tên
   const genderIcon = n.gioiTinh === 'nu'
     ? ' <span title="Nhân viên nữ" style="font-size:15px;">👩</span>'
     : '';
-
-  // Badge "Cấp lần đầu" cho NV mới
   const isMoi = !n.loaiNV || n.loaiNV === 'moi';
   const moiBadge = isMoi
     ? '<br><span style="display:inline-block;margin-top:3px;background:#e53935;color:#fff;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;letter-spacing:.3px;">🆕 CẤP LẦN ĐẦU</span>'
     : '';
+
+  // Cột nhóm — hiện khi đang lọc theo 1 đơn vị
+  let nhomCell = '';
+  if (showNhomCol) {
+    const groups = daGroups.filter(g => g.donVi === donViFilter);
+    const canAssign = canManageNhom(donViFilter);
+    if (canAssign && groups.length > 0) {
+      const opts = `<option value="">— Chưa có nhóm —</option>` +
+        groups.map(g => `<option value="${g.id}" ${n.nhomId === g.id ? 'selected' : ''}>${g.ten}</option>`).join('');
+      nhomCell = `<td><select onchange="setNhomNV(${n.id}, this.value)"
+        style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;max-width:130px;background:white;">${opts}</select></td>`;
+    } else {
+      const g = n.nhomId ? daGroups.find(x => x.id === n.nhomId) : null;
+      nhomCell = `<td><span style="font-size:12px;color:${g ? 'var(--primary)' : 'var(--text-light)'};">${g ? `📁 ${g.ten}` : '—'}</span></td>`;
+    }
+  }
 
   return `<tr data-id="${n.id}" ${dragAttrs}${!canEdit ? ' style="opacity:0.7;"' : ''}>
     ${sttCell}
     <td><code style="background:#f4f7fa;padding:2px 6px;border-radius:4px;">${n.ma}</code></td>
     <td><strong>${n.ten}</strong>${genderIcon}${moiBadge}</td>
     <td>${n.chucDanh}</td>
-    <td>${n.boPhan || '—'}</td>
+    ${showNhomCol ? nhomCell : `<td>${n.boPhan || '—'}</td>`}
     <td style="text-align:center;">${_fThang(n.thangCapQuanAo)}</td>
     <td style="text-align:center;">${_fThang(n.thangCapGiay)}</td>
     <td style="text-align:center;">${_fThang(n.thangCapNon)}</td>
     <td style="text-align:center;">${_fThang(n.thangCapKinh)}</td>
     <td style="text-align:center;">${actionBtns}</td>
   </tr>`;
+}
+
+/** Gọi khi đổi filter đơn vị — cập nhật panel nhóm + bảng */
+function onFilterBPChange() {
+  const donVi = document.getElementById('filter-bp')?.value || '';
+  renderNhomPanel(donVi);
+  // Cập nhật tiêu đề cột 5
+  const thCol = document.getElementById('th-donvi-or-nhom');
+  if (thCol) thCol.textContent = donVi ? 'Nhóm' : 'Đơn vị';
+  renderTableNV();
 }
 
 function renderTableNV() {
@@ -1801,7 +1883,44 @@ function renderTableNV() {
     return;
   }
 
-  // Chế độ nhóm theo đơn vị (khi chọn Tất cả và không tìm kiếm)
+  // ── Chế độ 1 đơn vị: nhóm theo nhóm nội bộ ──────────────────────────
+  if (bp && !q) {
+    const groups = daGroups.filter(g => g.donVi === bp);
+    let html = '';
+    let globalIdx = 0;
+
+    groups.forEach(g => {
+      const members = filtered.filter(n => n.nhomId === g.id);
+      if (members.length === 0) {
+        html += `<tr style="background:#f7fafd;">
+          <td colspan="10" style="padding:8px 14px;font-weight:600;color:var(--primary);font-size:13px;border-bottom:1.5px solid #cdd6e8;">
+            📁 ${g.ten} <span style="font-weight:400;font-size:11.5px;color:var(--text-light);">(0 người)</span>
+          </td></tr>`;
+        return;
+      }
+      html += `<tr style="background:#eaf2fb;">
+        <td colspan="10" style="padding:9px 14px;font-weight:700;color:var(--primary);font-size:13.5px;border-bottom:2px solid var(--primary-light);">
+          📁 ${g.ten} <span style="font-weight:400;font-size:12px;color:var(--text-light);margin-left:6px;">(${members.length} người)</span>
+        </td></tr>`;
+      members.forEach(n => { html += _nvRow(n, globalIdx++, true, true, bp); });
+    });
+
+    // NV chưa có nhóm (hoặc không có nhóm nào được tạo)
+    const unassigned = filtered.filter(n => !n.nhomId || !daGroups.find(g => g.id === n.nhomId && g.donVi === bp));
+    if (unassigned.length > 0) {
+      const label = groups.length > 0 ? 'Chưa xếp nhóm' : 'Tất cả nhân viên';
+      html += `<tr style="background:#f7f7f7;">
+        <td colspan="10" style="padding:9px 14px;font-weight:600;color:var(--text-light);font-size:13px;border-bottom:1.5px solid var(--border);">
+          👤 ${label} <span style="font-size:11.5px;">(${unassigned.length} người)</span>
+        </td></tr>`;
+      unassigned.forEach(n => { html += _nvRow(n, globalIdx++, groups.length === 0, true, bp); });
+    }
+    tbody.innerHTML = html;
+    _initNVDragListeners();
+    return;
+  }
+
+  // ── Chế độ tất cả đơn vị (không tìm kiếm): nhóm theo đơn vị ────────
   if (!bp && !q) {
     const allUnits = [...new Set(daNhanVien.map(n => n.boPhan).filter(Boolean))];
     const orderedUnits = [
@@ -1816,21 +1935,21 @@ function renderTableNV() {
       const roman = ROMAN_NUM[romanIdx] || String(romanIdx + 1);
       romanIdx++;
       html += `<tr class="unit-group-header"><td colspan="10">${roman}. ${unit} <span style="font-weight:400;font-size:12px;opacity:0.75;">(${unitEmps.length} người)</span></td></tr>`;
-      unitEmps.forEach((n, idx) => { html += _nvRow(n, idx, true); });
+      unitEmps.forEach((n, idx) => { html += _nvRow(n, idx, true, false, ''); });
     });
-    // NV chưa có đơn vị
     const noUnit = filtered.filter(n => !n.boPhan || !n.boPhan.trim());
     if (noUnit.length > 0) {
       html += `<tr class="unit-group-header"><td colspan="10" style="background:#c0392b !important;">⚠️ Chưa phân đơn vị (${noUnit.length} người)</td></tr>`;
-      noUnit.forEach((n, idx) => { html += _nvRow(n, idx, false); });
+      noUnit.forEach((n, idx) => { html += _nvRow(n, idx, false, false, ''); });
     }
     tbody.innerHTML = html;
+    _initNVDragListeners();
     return;
   }
 
-  // Chế độ phẳng: cho phép drag khi lọc theo 1 đơn vị (không tìm kiếm)
-  const allowDragFlat = !!bp && !q;
-  tbody.innerHTML = filtered.map((n, idx) => _nvRow(n, idx, allowDragFlat)).join('');
+  // ── Chế độ tìm kiếm (phẳng) ─────────────────────────────────────────
+  tbody.innerHTML = filtered.map((n, idx) => _nvRow(n, idx, false, !!bp, bp)).join('');
+  _initNVDragListeners();
 }
 
 // ── Drag-and-drop reorder nhân viên (event delegation) ──────────────────
@@ -2174,6 +2293,133 @@ function deleteDM(id) {
 }
 
 // =====================================================
+//  NHÓM NỘI BỘ NHÂN VIÊN
+// =====================================================
+
+/** Kiểm tra quyền quản lý nhóm của đơn vị donVi */
+function canManageNhom(donVi) {
+  if (_adminLoggedIn) return true;
+  if (_currentUnitUser && _currentUnitUser.donVi === donVi) return true;
+  return false;
+}
+
+/** Render panel nhóm phía trên bảng NV — gọi mỗi khi đổi filter đơn vị */
+function renderNhomPanel(donVi) {
+  const panel = document.getElementById('nhom-panel');
+  if (!donVi) { panel.style.display = 'none'; return; }
+
+  panel.style.display = 'block';
+  const canManage = canManageNhom(donVi);
+
+  // Nút "Tạo nhóm" — chỉ admin hoặc tài khoản đơn vị đó
+  const btnTao = document.getElementById('btn-tao-nhom');
+  if (btnTao) btnTao.style.display = canManage ? '' : 'none';
+
+  const groups = daGroups.filter(g => g.donVi === donVi);
+  const list = document.getElementById('nhom-list');
+  const empty = document.getElementById('nhom-empty');
+  const hint  = document.getElementById('nhom-empty-hint');
+
+  if (groups.length === 0) {
+    list.style.display = 'none';
+    empty.style.display = 'block';
+    hint.textContent = canManage ? 'Nhấn "➕ Tạo nhóm" để bắt đầu.' : '';
+  } else {
+    list.style.display = 'flex';
+    empty.style.display = 'none';
+    list.innerHTML = groups.map(g => {
+      const count = daNhanVien.filter(n => n.boPhan === donVi && n.nhomId === g.id).length;
+      return `<div style="display:inline-flex;align-items:center;gap:6px;background:#eaf2fb;border:1.5px solid #b0cde8;border-radius:20px;padding:5px 12px;font-size:13px;">
+        <span style="font-weight:600;color:var(--primary);">📁 ${g.ten}</span>
+        <span style="font-size:11.5px;color:var(--text-light);">(${count})</span>
+        ${canManage ? `
+          <button onclick="openModalNhom(${g.id})" title="Đổi tên" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;">✏️</button>
+          <button onclick="deleteNhom(${g.id})" title="Xóa nhóm" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;color:var(--danger);">🗑️</button>
+        ` : ''}
+      </div>`;
+    }).join('');
+  }
+}
+
+/** Mở modal: null = tạo mới, id = đổi tên */
+function openModalNhom(id) {
+  const donVi = document.getElementById('filter-bp')?.value;
+  if (!canManageNhom(donVi)) { showToast('Bạn không có quyền quản lý nhóm cho đơn vị này.', 'error'); return; }
+
+  editingIds.nhom = id;
+  if (id) {
+    const g = daGroups.find(x => x.id === id);
+    document.getElementById('modal-nhom-title').textContent = 'Đổi tên nhóm';
+    document.getElementById('nhom-ten-input').value = g ? g.ten : '';
+  } else {
+    document.getElementById('modal-nhom-title').textContent = 'Tạo nhóm mới';
+    document.getElementById('nhom-ten-input').value = '';
+  }
+  openModal('modal-nhom');
+  setTimeout(() => document.getElementById('nhom-ten-input').focus(), 80);
+}
+
+function saveNhom() {
+  const ten = document.getElementById('nhom-ten-input').value.trim();
+  if (!ten) { showToast('Vui lòng nhập tên nhóm!', 'error'); return; }
+  const donVi = document.getElementById('filter-bp')?.value;
+  if (!donVi) { showToast('Vui lòng chọn đơn vị trước.', 'error'); return; }
+
+  if (editingIds.nhom) {
+    // Đổi tên
+    const idx = daGroups.findIndex(g => g.id === editingIds.nhom);
+    if (idx >= 0) { daGroups[idx].ten = ten; showToast(`Đã đổi tên nhóm thành "${ten}"!`); }
+  } else {
+    // Tạo mới — kiểm tra trùng tên trong cùng đơn vị
+    const trung = daGroups.find(g => g.donVi === donVi && g.ten === ten);
+    if (trung) { showToast(`Đã có nhóm tên "${ten}" trong đơn vị này!`, 'error'); return; }
+    daGroups.push({ id: nextId(daGroups), ten, donVi });
+    showToast(`Đã tạo nhóm "${ten}"!`);
+  }
+
+  saveData('nhom-nv', daGroups);
+  markLocalChanged();
+  closeModal('modal-nhom');
+  renderNhomPanel(donVi);
+  renderTableNV();
+}
+
+function deleteNhom(id) {
+  const g = daGroups.find(x => x.id === id);
+  if (!g) return;
+  const count = daNhanVien.filter(n => n.nhomId === id).length;
+  const msg = count > 0
+    ? `Xóa nhóm "${g.ten}"? ${count} nhân viên sẽ chuyển về "Chưa có nhóm".`
+    : `Xóa nhóm "${g.ten}"?`;
+  if (!confirm(msg)) return;
+
+  // Unassign nhân viên
+  if (count > 0) {
+    daNhanVien = daNhanVien.map(n => n.nhomId === id ? { ...n, nhomId: null } : n);
+    saveData('nhanvien', daNhanVien);
+  }
+  daGroups = daGroups.filter(x => x.id !== id);
+  saveData('nhom-nv', daGroups);
+  markLocalChanged();
+  renderNhomPanel(g.donVi);
+  renderTableNV();
+  showToast(`Đã xóa nhóm "${g.ten}".`, 'warning');
+}
+
+/** Gán nhân viên vào nhóm — gọi từ <select> trong row */
+function setNhomNV(nvId, nhomIdStr) {
+  const nhomId = nhomIdStr === '' ? null : parseInt(nhomIdStr);
+  const idx = daNhanVien.findIndex(n => n.id === nvId);
+  if (idx < 0) return;
+  daNhanVien[idx].nhomId = nhomId;
+  saveData('nhanvien', daNhanVien);
+  markLocalChanged();
+  const donVi = document.getElementById('filter-bp')?.value;
+  renderNhomPanel(donVi);    // cập nhật số đếm
+  renderTableNV();
+}
+
+// =====================================================
 //  ĐỊNH MỨC CẤP PHÁT
 // =====================================================
 function renderTableDinhMuc() {
@@ -2193,7 +2439,7 @@ function renderTableDinhMuc() {
   const chucDanhs = Object.keys(grouped).filter(cd => !q || cd.toLowerCase().includes(q));
 
   if (chucDanhs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:32px;color:var(--text-light);">${daDinhMuc.length === 0 ? 'Chưa có định mức nào.' : 'Không tìm thấy chức danh phù hợp.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-light);">${daDinhMuc.length === 0 ? 'Chưa có định mức nào.' : 'Không tìm thấy chức danh phù hợp.'}</td></tr>`;
     return;
   }
 
@@ -2201,9 +2447,10 @@ function renderTableDinhMuc() {
   chucDanhs.forEach(cd => {
     const items = grouped[cd];
     rows += `<tr style="background:#eaf2fb;">
-      <td colspan="3" style="font-weight:700;color:var(--primary);padding:10px 14px;font-size:14px;border-bottom:2px solid var(--primary-light);">
+      <td colspan="4" style="font-weight:700;color:var(--primary);padding:10px 14px;font-size:14px;border-bottom:2px solid var(--primary-light);">
         👷 ${cd}
         <span style="font-size:12px;font-weight:400;color:var(--text-light);margin-left:8px;">(${items.length} trang bị)</span>
+        ${_adminLoggedIn ? `<button class="btn btn-primary btn-sm" style="margin-left:12px;padding:3px 10px;font-size:12px;" onclick="openModalDinhMucForCD('${cd.replace(/'/g,"\\'")}')">➕ Thêm trang bị</button>` : ''}
       </td>
     </tr>`;
     items.forEach(d => {
@@ -2211,16 +2458,20 @@ function renderTableDinhMuc() {
       const tenHienThi = tb ? (tb.nhom || tb.ten) : `ID:${d.trangBiId}`;
       rows += `<tr>
         <td style="padding-left:28px;">${tb ? `<span class="badge badge-blue">${tenHienThi}</span>` : `<span style="color:var(--text-light)">${tenHienThi}</span>`}</td>
-        <td style="color:var(--text-light);font-size:13px;">${d.chuKy} tháng</td>
-        <td>${_adminLoggedIn ? `<button class="btn btn-danger btn-sm" onclick="deleteDinhMuc(${d.id})">🗑️</button>` : '<span style="font-size:12px;color:var(--text-light);">👁️</span>'}</td>
+        <td style="text-align:center;font-weight:600;">${d.soLuong || 1}</td>
+        <td style="text-align:center;color:var(--text-light);font-size:13px;">${d.chuKy} tháng</td>
+        <td>${_adminLoggedIn ?
+          `<button class="btn btn-outline btn-sm" onclick="editDinhMuc(${d.id})" title="Sửa">✏️</button>
+           <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteDinhMuc(${d.id})" title="Xóa">🗑️</button>` :
+          '<span style="font-size:12px;color:var(--text-light);">👁️</span>'
+        }</td>
       </tr>`;
     });
   });
   tbody.innerHTML = rows;
 }
 
-function openModalDinhMuc() {
-  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
+function _buildDinhMucTrangBiOptions(selectedId) {
   // Chỉ hiện một đại diện mỗi nhóm (không liệt kê từng cỡ)
   const seenNhom = new Set();
   const nhomItems = daDanhMuc.filter(d => {
@@ -2228,41 +2479,105 @@ function openModalDinhMuc() {
     if (!seenNhom.has(key)) { seenNhom.add(key); return true; }
     return false;
   });
-  // Nhóm theo loại để hiện optgroup
   const byLoai = {};
   nhomItems.forEach(d => {
     if (!byLoai[d.loai]) byLoai[d.loai] = [];
     byLoai[d.loai].push(d);
   });
-  document.getElementById('dm2-trangbi').innerHTML = '<option value="">-- Chọn loại trang bị --</option>' +
+  return '<option value="">-- Chọn loại trang bị --</option>' +
     Object.entries(byLoai).map(([loai, items]) =>
-      `<optgroup label="${loai}">${items.map(d => `<option value="${d.id}">${d.nhom || d.ten}</option>`).join('')}</optgroup>`
+      `<optgroup label="${loai}">${items.map(d =>
+        `<option value="${d.id}"${d.id === selectedId ? ' selected' : ''}>${d.nhom || d.ten}</option>`
+      ).join('')}</optgroup>`
     ).join('');
+}
+
+function openModalDinhMuc() {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
+  editingIds.dinhmuc = null;
+  document.getElementById('modal-dinhmuc-title').textContent = 'Thêm định mức cấp phát';
+  document.getElementById('dm2-trangbi').innerHTML = _buildDinhMucTrangBiOptions(null);
   const cds = [...new Set(daNhanVien.map(n => n.chucDanh))];
   document.getElementById('list-chucdarnh2').innerHTML = cds.map(c => `<option value="${c}">`).join('');
   document.getElementById('dm2-chucdarnh').value = '';
+  document.getElementById('dm2-chucdarnh').disabled = false;
   document.getElementById('dm2-soluong').value = 1;
   document.getElementById('dm2-chuki').value = '';
   document.getElementById('dm2-cancuphaply').value = '';
   openModal('modal-dinhmuc');
 }
 
+function openModalDinhMucForCD(chucDanh) {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
+  editingIds.dinhmuc = null;
+  document.getElementById('modal-dinhmuc-title').textContent = 'Thêm trang bị cho chức danh';
+  document.getElementById('dm2-trangbi').innerHTML = _buildDinhMucTrangBiOptions(null);
+  const cds = [...new Set(daNhanVien.map(n => n.chucDanh))];
+  document.getElementById('list-chucdarnh2').innerHTML = cds.map(c => `<option value="${c}">`).join('');
+  document.getElementById('dm2-chucdarnh').value = chucDanh;
+  document.getElementById('dm2-chucdarnh').disabled = true; // Cố định chức danh
+  document.getElementById('dm2-soluong').value = 1;
+  document.getElementById('dm2-chuki').value = '';
+  document.getElementById('dm2-cancuphaply').value = '';
+  openModal('modal-dinhmuc');
+}
+
+function editDinhMuc(id) {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
+  const d = daDinhMuc.find(x => x.id === id);
+  if (!d) return;
+  editingIds.dinhmuc = id;
+  document.getElementById('modal-dinhmuc-title').textContent = 'Chỉnh sửa định mức cấp phát';
+  document.getElementById('dm2-trangbi').innerHTML = _buildDinhMucTrangBiOptions(d.trangBiId);
+  const cds = [...new Set(daNhanVien.map(n => n.chucDanh))];
+  document.getElementById('list-chucdarnh2').innerHTML = cds.map(c => `<option value="${c}">`).join('');
+  document.getElementById('dm2-chucdarnh').value = d.chucDanh || '';
+  document.getElementById('dm2-chucdarnh').disabled = true; // Không đổi chức danh khi sửa
+  document.getElementById('dm2-soluong').value = d.soLuong || 1;
+  document.getElementById('dm2-chuki').value = d.chuKy || '';
+  document.getElementById('dm2-cancuphaply').value = d.canCu || '';
+  openModal('modal-dinhmuc');
+}
+
 function saveDinhMuc() {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
   const chucDanh = document.getElementById('dm2-chucdarnh').value.trim();
   const trangBiId = parseInt(document.getElementById('dm2-trangbi').value);
   if (!chucDanh || !trangBiId) { showToast('Vui lòng điền chức danh và chọn trang bị!', 'error'); return; }
-  daDinhMuc.push({ id: nextId(daDinhMuc), chucDanh, trangBiId, soLuong: parseInt(document.getElementById('dm2-soluong').value) || 1, chuKy: parseInt(document.getElementById('dm2-chuki').value) || 12, canCu: document.getElementById('dm2-cancuphaply').value.trim() });
+  const soLuong = parseInt(document.getElementById('dm2-soluong').value) || 1;
+  const chuKy   = parseFloat(document.getElementById('dm2-chuki').value) || 12;
+  const canCu   = document.getElementById('dm2-cancuphaply').value.trim();
+
+  if (editingIds.dinhmuc) {
+    // Chế độ SỬA
+    const idx = daDinhMuc.findIndex(x => x.id === editingIds.dinhmuc);
+    if (idx >= 0) {
+      daDinhMuc[idx] = { ...daDinhMuc[idx], trangBiId, soLuong, chuKy, canCu };
+    }
+    showToast('Đã cập nhật định mức cấp phát!');
+  } else {
+    // Chế độ THÊM MỚI — kiểm tra trùng
+    const trung = daDinhMuc.find(x => x.chucDanh === chucDanh && x.trangBiId === trangBiId);
+    if (trung) { showToast('Chức danh này đã có định mức cho trang bị đó rồi!', 'error'); return; }
+    daDinhMuc.push({ id: nextId(daDinhMuc), chucDanh, trangBiId, soLuong, chuKy, canCu });
+    showToast('Đã thêm định mức cấp phát!');
+  }
+
   saveData('dinhmuc', daDinhMuc);
+  markLocalChanged();
   closeModal('modal-dinhmuc');
   renderTableDinhMuc();
-  showToast('Đã thêm định mức cấp phát!');
 }
 
 function deleteDinhMuc(id) {
   if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể chỉnh sửa định mức cấp phát.', 'error'); return; }
-  if (!confirm('Xóa định mức này?')) return;
+  const d = daDinhMuc.find(x => x.id === id);
+  const tb = d ? getTB(d.trangBiId) : null;
+  const ten = tb ? (tb.nhom || tb.ten) : `ID:${d?.trangBiId}`;
+  if (!confirm(`Xóa định mức "${ten}" cho chức danh "${d?.chucDanh}"?`)) return;
   daDinhMuc = daDinhMuc.filter(x => x.id !== id);
   saveData('dinhmuc', daDinhMuc);
+  markLocalChanged();
   renderTableDinhMuc();
   showToast('Đã xóa định mức.', 'warning');
 }
@@ -2826,12 +3141,13 @@ async function pullFromSheets() {
 
   syncLog('⏳ Đang tải dữ liệu từ Google Sheets...');
   try {
-    const [nv, dm, dinh, tk, tkls] = await Promise.all([
+    const [nv, dm, dinh, tk, tkls, grp] = await Promise.all([
       sheetGet('nhanvien'),
       sheetGet('danhmuc'),
       sheetGet('dinhmuc'),
       sheetGet('tonkho'),
       sheetGet('tonkho-lichsu'),
+      sheetGet('nhom-nv'),
     ]);
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); }
     if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  }
@@ -2840,12 +3156,14 @@ async function pullFromSheets() {
       daTonKho = tk; saveData('tonkho', daTonKho);
     }
     if (Array.isArray(tkls)) { daTonKhoLichSu = tkls; saveData('tonkho-lichsu', daTonKhoLichSu); }
+    if (Array.isArray(grp))  { daGroups = grp; saveData('nhom-nv', daGroups); }
     clearLocalChanges();
-    // Refresh toàn bộ giao diện hiện tại
     renderDashboard();
     renderTableNV();
     renderTableDM();
     renderTableDinhMuc();
+    const bp = document.getElementById('filter-bp')?.value || '';
+    if (bp) renderNhomPanel(bp);
     const total = nv.length + dm.length + dinh.length;
     if (total === 0) {
       syncLog('⚠️ Tải về thành công nhưng nhận được 0 dữ liệu từ Google Sheets.\nCó thể dữ liệu chưa được đẩy lên hoặc Apps Script chưa xử lý đúng. Thử nhấn "🔍 Kiểm tra dữ liệu thật" để chẩn đoán.', 'error');
@@ -2905,8 +3223,9 @@ async function pushAllToSheets() {
       sheetPost('dinhmuc',       daDinhMuc),
       sheetPost('tonkho',        daTonKho),
       sheetPost('tonkho-lichsu', daTonKhoLichSu),
+      sheetPost('nhom-nv',       daGroups),
     ]);
-    syncLog(`✅ Đẩy thành công! ${daNhanVien.length} NV – ${daDanhMuc.length} danh mục – ${daDinhMuc.length} định mức.`, 'success');
+    syncLog(`✅ Đẩy thành công! ${daNhanVien.length} NV – ${daDanhMuc.length} danh mục – ${daDinhMuc.length} định mức – ${daGroups.length} nhóm.`, 'success');
     showToast('Đã đẩy toàn bộ dữ liệu lên Google Sheets!');
   } catch(e) {
     syncLog('❌ Lỗi: ' + e.message, 'error');
@@ -2963,6 +3282,7 @@ async function quickPush() {
       sheetPost('dinhmuc',       daDinhMuc),
       sheetPost('tonkho',        daTonKho),
       sheetPost('tonkho-lichsu', daTonKhoLichSu),
+      sheetPost('nhom-nv',       daGroups),
     ]);
     clearLocalChanges();
     showToast('✅ Đã đẩy dữ liệu lên Google Sheets thành công!');
@@ -3051,6 +3371,9 @@ async function unitLogin() {
     hideLoginOverlay();
     updateHeaderUser();
     showToast(`✅ Đăng nhập thành công! ${found.donVi}`);
+    // Auto-filter về đơn vị của tài khoản đang đăng nhập
+    const bpEl = document.getElementById('filter-bp');
+    if (bpEl) { bpEl.value = found.donVi; onFilterBPChange(); }
   } catch(e) {
     errEl.textContent = '❌ Lỗi kết nối. Kiểm tra URL hoặc thử lại.';
     errEl.style.display = 'block';
@@ -3161,6 +3484,13 @@ function switchTonKhoTab(tab) {
     const panel = document.getElementById(`tk-panel-${t}`);
     if (panel) panel.style.display = t === tab ? '' : 'none';
   });
+  // Ẩn/hiện thanh tìm kiếm theo tab
+  const searchBar = document.getElementById('tk-search-bar');
+  if (searchBar) searchBar.style.display = tab === 'hientai' ? '' : 'none';
+  if (tab !== 'hientai') {
+    const inp = document.getElementById('tk-search-input');
+    if (inp) inp.value = '';
+  }
   if (tab === 'hientai') renderTonKhoBang();
   if (tab === 'nhap')    renderLichSuNhap();
   if (tab === 'xuat')    renderLichSuXuat();
@@ -3187,10 +3517,10 @@ function renderTonKhoBang() {
       : `<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:12px;font-size:11px;">🟢 Còn hàng</span>`;
     return `<tr>
       <td style="text-align:center;">${i+1}</td>
-      <td>${dm.maVatTu || '—'}</td>
+      <td>${dm.ma || '—'}</td>
       <td>${dm.ten}</td>
-      <td>${dm.nhomCo || '—'}</td>
-      <td style="text-align:center;">${dm.dvt || '—'}</td>
+      <td>${dm.nhom || '—'}</td>
+      <td style="text-align:center;">${dm.donVi || '—'}</td>
       <td style="text-align:center;font-weight:700;font-size:15px;">${qty}</td>
       <td style="text-align:center;">${badge}</td>
     </tr>`;
@@ -3224,9 +3554,24 @@ function renderTonKhoBang() {
             <th style="text-align:center;">Trạng thái</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody id="tk-hientai-tbody">${rows}</tbody>
       </table>
     </div>`;
+  // Áp dụng filter hiện tại nếu người dùng đã gõ
+  const q = document.getElementById('tk-search-input')?.value || '';
+  if (q) filterTonKhoBang(q);
+}
+
+/** Lọc bảng tồn kho theo tên vật tư */
+function filterTonKhoBang(q) {
+  const tbody = document.getElementById('tk-hientai-tbody');
+  if (!tbody) return;
+  const term = q.trim().toLowerCase();
+  Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+    // Cột index 2 = Tên trang bị BHLĐ (0=STT, 1=Mã, 2=Tên, ...)
+    const name = row.cells[2]?.textContent.toLowerCase() || '';
+    row.style.display = (!term || name.includes(term)) ? '' : 'none';
+  });
 }
 
 /** Lịch sử nhập kho */
@@ -3350,9 +3695,9 @@ function renderFormKho(type) {
   const itemRows = daDanhMuc.map(dm => {
     const cur = daTonKho[dm.id] || 0;
     return `<tr>
-      <td>${dm.maVatTu || '—'}</td>
+      <td>${dm.ma || '—'}</td>
       <td>${dm.ten}</td>
-      <td style="text-align:center;">${dm.dvt || '—'}</td>
+      <td style="text-align:center;">${dm.donVi || '—'}</td>
       ${type === 'xuat' ? `<td style="text-align:center;color:${cur===0?'var(--danger)':'inherit'};font-weight:600;">${cur}</td>` : ''}
       <td style="text-align:center;">
         <input type="number" min="0" step="1" value="" placeholder="0"
@@ -4067,6 +4412,7 @@ function buildPendingCard(p, readonly) {
       <div style="font-size:13px;color:var(--success);">✚ Bổ sung: <strong>${diff.added.length}</strong></div>
       <div style="font-size:13px;color:var(--accent);">✖ Loại bỏ: <strong>${diff.removed.length}</strong></div>
       <div style="font-size:13px;color:var(--warning);">✎ Thay đổi: <strong>${diff.updated.length}</strong></div>
+      <div style="font-size:13px;color:var(--primary);">↕ Đổi STT: <strong>${diff.reordered?.length || 0}</strong></div>
       <div style="font-size:13px;color:var(--text-light);">= Không đổi: <strong>${diff.unchanged.length}</strong></div>
     </div>
     <div style="margin-top:14px;">${buildDiffHTML(diff)}</div>
@@ -4102,7 +4448,22 @@ function buildDiffHTML(diff) {
       </div></div>`;
   }
 
-  if (diff.added.length === 0 && diff.removed.length === 0 && diff.updated.length === 0) {
+  if (diff.reordered && diff.reordered.length > 0) {
+    html += `<div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px;">↕ Đổi thứ tự STT (${diff.reordered.length} người bị dịch chuyển)</div>
+      <div style="background:#f0f4fb;border-radius:8px;padding:10px 14px;max-height:160px;overflow-y:auto;">
+        ${diff.reordered.map(r => `<div style="font-size:12.5px;padding:2px 0;display:flex;align-items:center;gap:8px;">
+          <span style="background:#dde6f3;color:var(--primary);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:28px;text-align:center;">${r.oldStt}</span>
+          <span style="color:var(--text-light);">→</span>
+          <span style="background:var(--primary);color:#fff;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:28px;text-align:center;">${r.newStt}</span>
+          <strong>${r.ten}</strong> <span style="color:var(--text-light);font-size:11.5px;">(${r.ma})</span>
+        </div>`).join('')}
+      </div></div>`;
+  }
+
+  const noChange = diff.added.length === 0 && diff.removed.length === 0 &&
+                   diff.updated.length === 0 && (!diff.reordered || diff.reordered.length === 0);
+  if (noChange) {
     html += `<div style="text-align:center;padding:20px;color:var(--text-light);font-size:13px;">
       ✅ Không có thay đổi so với dữ liệu hiện tại trên hệ thống.</div>`;
   }
@@ -4119,13 +4480,14 @@ function renderSubmitPreview(diff, donVi, total) {
     <div style="font-size:13px;color:var(--success);">✚ Bổ sung: <strong>${diff.added.length}</strong></div>
     <div style="font-size:13px;color:var(--accent);">✖ Loại bỏ: <strong>${diff.removed.length}</strong></div>
     <div style="font-size:13px;color:var(--warning);">✎ Thay đổi: <strong>${diff.updated.length}</strong></div>
+    <div style="font-size:13px;color:var(--primary);">↕ Đổi STT: <strong>${diff.reordered?.length || 0}</strong></div>
     <div style="font-size:13px;color:var(--text-light);">= Không đổi: <strong>${diff.unchanged.length}</strong></div>`;
 
   document.getElementById('submit-preview-body').innerHTML = buildDiffHTML(diff);
 }
 
 /** So sánh danh sách gửi đi (submitted) với danh sách gốc (base).
- *  Trả về: added, updated, unchanged, removed */
+ *  Trả về: added, updated, unchanged, removed, reordered */
 function computeDiff(submitted, base) {
   const baseMap = {};
   base.forEach(nv => { if (nv.ma) baseMap[nv.ma] = JSON.stringify(nv); });
@@ -4134,7 +4496,27 @@ function computeDiff(submitted, base) {
   const updated   = submitted.filter(nv => baseMap[nv.ma] && baseMap[nv.ma] !== JSON.stringify(nv));
   const unchanged = submitted.filter(nv => baseMap[nv.ma] && baseMap[nv.ma] === JSON.stringify(nv));
   const removed   = base.filter(nv => nv.ma && !submittedMas.has(nv.ma));
-  return { added, updated, unchanged, removed };
+
+  // Phát hiện thay đổi thứ tự STT:
+  // So sánh thứ tự tương đối của những NV có mặt ở CẢ HAI danh sách
+  const commonInBase = base.filter(nv => nv.ma && submittedMas.has(nv.ma)).map(nv => nv.ma);
+  const commonInSub  = submitted.filter(nv => nv.ma && baseMap[nv.ma]).map(nv => nv.ma);
+  const reordered = [];
+  if (JSON.stringify(commonInBase) !== JSON.stringify(commonInSub)) {
+    // Xác định từng người bị dịch chuyển vị trí
+    const basePosMap = {};
+    commonInBase.forEach((ma, i) => { basePosMap[ma] = i + 1; });
+    commonInSub.forEach((ma, i) => {
+      const oldStt = basePosMap[ma];
+      const newStt = i + 1;
+      if (oldStt !== newStt) {
+        const nv = submitted.find(n => n.ma === ma);
+        reordered.push({ ma, ten: nv?.ten || ma, oldStt, newStt });
+      }
+    });
+  }
+
+  return { added, updated, unchanged, removed, reordered };
 }
 // Giữ tên cũ để tương thích
 function computePendingDiff(submitted, base) { return computeDiff(submitted, base); }
@@ -4144,11 +4526,16 @@ async function approvePending(id) {
   const p = _pendingList.find(x => x.id === id);
   if (!p) return;
 
-  // Merge: local làm nền, submission ghi đè theo mã
-  const map = {};
-  daNhanVien.forEach(nv => { if (nv.ma) map[nv.ma] = nv; });
-  (p.nhanvien || []).forEach(nv => { if (nv.ma) map[nv.ma] = nv; });
-  const merged = Object.values(map);
+  const donVi = p.donVi;
+  const submittedEmps = p.nhanvien || [];
+  const submittedMaSet = new Set(submittedEmps.map(nv => nv.ma).filter(Boolean));
+
+  // Merge GIỮ THỨ TỰ:
+  // 1. Nhân viên đơn vị KHÁC: giữ nguyên thứ tự trong daNhanVien hiện tại
+  //    (lọc ra cả những NV có mã trùng với submission để tránh trùng lặp)
+  const otherEmps = daNhanVien.filter(nv => nv.boPhan !== donVi && !submittedMaSet.has(nv.ma));
+  // 2. Nhân viên đơn vị NÀY: dùng thứ tự từ submission (phản ánh drag đơn vị đã làm)
+  const merged = [...otherEmps, ...submittedEmps];
 
   try {
     // Cập nhật local
@@ -4281,9 +4668,9 @@ initAuth();
 (async function autoPullOnLoad() {
   if (!_sheetUrl || _hasLocalChanges) return;
   try {
-    const [nv, dm, dinh, tk, tkls] = await Promise.all([
+    const [nv, dm, dinh, tk, tkls, grp] = await Promise.all([
       sheetGet('nhanvien'), sheetGet('danhmuc'), sheetGet('dinhmuc'),
-      sheetGet('tonkho'), sheetGet('tonkho-lichsu')
+      sheetGet('tonkho'), sheetGet('tonkho-lichsu'), sheetGet('nhom-nv')
     ]);
     let changed = false;
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); changed = true; }
@@ -4295,11 +4682,16 @@ initAuth();
     if (Array.isArray(tkls) && tkls.length) {
       daTonKhoLichSu = tkls; saveData('tonkho-lichsu', daTonKhoLichSu); changed = true;
     }
+    if (Array.isArray(grp)) {
+      daGroups = grp; saveData('nhom-nv', daGroups); changed = true;
+    }
     if (changed) {
       renderDashboard();
       renderTableNV();
       renderTableDM();
       renderTableDinhMuc();
+      const bp = document.getElementById('filter-bp')?.value || '';
+      if (bp) renderNhomPanel(bp);
       showToast('🔄 Đã tự động cập nhật dữ liệu mới nhất từ Google Sheets.');
     }
   } catch(e) {
