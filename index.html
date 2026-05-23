@@ -1231,7 +1231,7 @@
     </div>
 
     <!-- Nút admin -->
-    <div style="border:1.5px dashed var(--border);border-radius:8px;padding:12px;margin-bottom:16px;background:#fafbfc;">
+    <div id="sync-admin-section" style="display:none;border:1.5px dashed var(--border);border-radius:8px;padding:12px;margin-bottom:16px;background:#fafbfc;">
       <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:8px;">🔧 Dành cho Admin – Đẩy toàn bộ dữ liệu (ghi đè Sheets)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline" onclick="pushAllToSheets()" style="font-size:12px;">📤 Đẩy tất cả (NV + Danh mục + Định mức)</button>
@@ -2826,14 +2826,20 @@ async function pullFromSheets() {
 
   syncLog('⏳ Đang tải dữ liệu từ Google Sheets...');
   try {
-    const [nv, dm, dinh] = await Promise.all([
+    const [nv, dm, dinh, tk, tkls] = await Promise.all([
       sheetGet('nhanvien'),
       sheetGet('danhmuc'),
       sheetGet('dinhmuc'),
+      sheetGet('tonkho'),
+      sheetGet('tonkho-lichsu'),
     ]);
-    if (nv.length)  { daNhanVien = nv;  saveData('nhanvien', daNhanVien); }
-    if (dm.length)  { daDanhMuc  = dm;  saveData('danhmuc',  daDanhMuc);  }
-    if (dinh.length){ daDinhMuc  = dinh; saveData('dinhmuc',  daDinhMuc);  }
+    if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); }
+    if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  }
+    if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  }
+    if (tk && typeof tk === 'object' && !Array.isArray(tk)) {
+      daTonKho = tk; saveData('tonkho', daTonKho);
+    }
+    if (Array.isArray(tkls)) { daTonKhoLichSu = tkls; saveData('tonkho-lichsu', daTonKhoLichSu); }
     clearLocalChanges();
     // Refresh toàn bộ giao diện hiện tại
     renderDashboard();
@@ -2874,6 +2880,7 @@ async function pushNhanVien() {
 
 /** Admin: đẩy toàn bộ dữ liệu lên Sheets (ghi đè) */
 async function pushAllToSheets() {
+  if (!_adminLoggedIn) { syncLog('⛔ Chức năng này chỉ dành cho Admin. Vui lòng đăng nhập Admin trước.', 'error'); showToast('⛔ Chỉ Admin mới có thể đẩy toàn bộ dữ liệu.', 'error'); return; }
   if (!_sheetUrl) { syncLog('⚠️ Chưa có URL. Vui lòng lưu URL trước.', 'error'); return; }
 
   // Cảnh báo nhân viên chưa có đơn vị
@@ -2893,9 +2900,11 @@ async function pushAllToSheets() {
   syncLog('⏳ Đang đẩy toàn bộ dữ liệu...');
   try {
     await Promise.all([
-      sheetPost('nhanvien', daNhanVien),
-      sheetPost('danhmuc',  daDanhMuc),
-      sheetPost('dinhmuc',  daDinhMuc),
+      sheetPost('nhanvien',      daNhanVien),
+      sheetPost('danhmuc',       daDanhMuc),
+      sheetPost('dinhmuc',       daDinhMuc),
+      sheetPost('tonkho',        daTonKho),
+      sheetPost('tonkho-lichsu', daTonKhoLichSu),
     ]);
     syncLog(`✅ Đẩy thành công! ${daNhanVien.length} NV – ${daDanhMuc.length} danh mục – ${daDinhMuc.length} định mức.`, 'success');
     showToast('Đã đẩy toàn bộ dữ liệu lên Google Sheets!');
@@ -2949,9 +2958,11 @@ async function quickPush() {
   if (bar) bar.innerHTML = '<span style="font-size:13px;color:#856404;font-weight:600;">⏳ Đang đẩy dữ liệu lên Google Sheets...</span>';
   try {
     await Promise.all([
-      sheetPost('nhanvien', daNhanVien),
-      sheetPost('danhmuc',  daDanhMuc),
-      sheetPost('dinhmuc',  daDinhMuc),
+      sheetPost('nhanvien',      daNhanVien),
+      sheetPost('danhmuc',       daDanhMuc),
+      sheetPost('dinhmuc',       daDinhMuc),
+      sheetPost('tonkho',        daTonKho),
+      sheetPost('tonkho-lichsu', daTonKhoLichSu),
     ]);
     clearLocalChanges();
     showToast('✅ Đã đẩy dữ liệu lên Google Sheets thành công!');
@@ -3761,6 +3772,8 @@ function adminLogin() {
     errEl.style.display = 'none';
     document.getElementById('admin-pass-input').value = '';
     loadPendingList();
+    const adminSec = document.getElementById('sync-admin-section');
+    if (adminSec) adminSec.style.display = 'block';
   } else {
     errEl.style.display = 'block';
     document.getElementById('admin-pass-input').value = '';
@@ -3773,6 +3786,8 @@ function adminLogout() {
   document.getElementById('admin-login-section').style.display = 'block';
   document.getElementById('admin-dashboard-section').style.display = 'none';
   document.getElementById('admin-pass-input').value = '';
+  const adminSec = document.getElementById('sync-admin-section');
+  if (adminSec) adminSec.style.display = 'none';
 }
 
 function adminSwitchTab(tab) {
@@ -4266,13 +4281,20 @@ initAuth();
 (async function autoPullOnLoad() {
   if (!_sheetUrl || _hasLocalChanges) return;
   try {
-    const [nv, dm, dinh] = await Promise.all([
-      sheetGet('nhanvien'), sheetGet('danhmuc'), sheetGet('dinhmuc')
+    const [nv, dm, dinh, tk, tkls] = await Promise.all([
+      sheetGet('nhanvien'), sheetGet('danhmuc'), sheetGet('dinhmuc'),
+      sheetGet('tonkho'), sheetGet('tonkho-lichsu')
     ]);
     let changed = false;
-    if (nv.length)   { daNhanVien = nv;  saveData('nhanvien', daNhanVien); changed = true; }
-    if (dm.length)   { daDanhMuc  = dm;  saveData('danhmuc',  daDanhMuc);  changed = true; }
-    if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc', daDinhMuc);  changed = true; }
+    if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); changed = true; }
+    if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  changed = true; }
+    if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  changed = true; }
+    if (tk && typeof tk === 'object' && !Array.isArray(tk)) {
+      daTonKho = tk; saveData('tonkho', daTonKho); changed = true;
+    }
+    if (Array.isArray(tkls) && tkls.length) {
+      daTonKhoLichSu = tkls; saveData('tonkho-lichsu', daTonKhoLichSu); changed = true;
+    }
     if (changed) {
       renderDashboard();
       renderTableNV();
