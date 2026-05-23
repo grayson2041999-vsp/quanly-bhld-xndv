@@ -296,11 +296,30 @@
     <div class="header-date" id="header-date"></div>
     <!-- Thông tin tài khoản đơn vị -->
     <div id="header-user-area" style="display:flex;align-items:center;gap:8px;"></div>
-    <button id="btn-sync-header" onclick="openModal('modal-sync')" title="Đồng bộ Google Sheets"
+    <!-- Nút Đồng bộ — luôn hiển thị -->
+    <button id="btn-sync-pull" onclick="pullFromSheets()" title="Tải dữ liệu mới nhất từ Google Sheets về máy"
       style="position:relative;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;transition:background 0.2s;"
       onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
-      ☁️ Đồng bộ
+      🔄 Đồng bộ
       <span id="sync-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#e53935;color:white;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;line-height:16px;text-align:center;">!</span>
+    </button>
+    <!-- Nút Gửi phê duyệt — chỉ khi đơn vị đã đăng nhập -->
+    <button id="btn-submit-header" onclick="submitPending()" title="Gửi danh sách nhân sự cho Admin phê duyệt"
+      style="display:none;background:rgba(255,193,7,0.22);border:1.5px solid rgba(255,210,50,0.55);color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.2s;"
+      onmouseover="this.style.background='rgba(255,193,7,0.38)'" onmouseout="this.style.background='rgba(255,193,7,0.22)'">
+      📨 Gửi phê duyệt nhân sự
+    </button>
+    <!-- Nút Đẩy tất cả — chỉ admin -->
+    <button id="btn-push-all-header" onclick="pushAllToSheets()" title="Đẩy toàn bộ dữ liệu lên Google Sheets (ghi đè)"
+      style="display:none;background:rgba(231,76,60,0.22);border:1.5px solid rgba(231,76,60,0.5);color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.2s;"
+      onmouseover="this.style.background='rgba(231,76,60,0.38)'" onmouseout="this.style.background='rgba(231,76,60,0.22)'">
+      📤 Đẩy tất cả dữ liệu
+    </button>
+    <!-- Cài đặt kết nối Sheets — chỉ admin -->
+    <button id="btn-sync-settings" onclick="openModal('modal-sync')" title="Cài đặt kết nối Google Sheets"
+      style="display:none;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:13px;transition:background 0.2s;"
+      onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+      ⚙️
     </button>
   </div>
 </header>
@@ -479,7 +498,7 @@
        TRANG: DANH MỤC BHLĐ
        ============================ -->
   <div id="page-danh-muc" class="page">
-    <div class="page-title">🗂️ Danh mục BHLĐ & PTBCN</div>
+    <div class="page-title">🗂️ Danh mục BHLĐ & PTBVCN</div>
     <div class="card">
       <div class="btn-group">
         <button class="btn btn-primary" onclick="openModalDM()" style="display:none;">➕ Thêm trang bị</button>
@@ -551,10 +570,22 @@
           <label style="font-size:13px;font-weight:600;color:var(--text-light);">Đơn vị:</label>
           <select id="bc-don-vi" onchange="renderBaoCaoQuy()" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:7px;font-size:13.5px;min-width:180px;"></select>
         </div>
-        <button class="btn btn-outline" onclick="exportQuyCSV()" style="margin-left:auto;">⬇️ Xuất phiếu yêu cầu</button>
+        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportPhieuWord()">📄 Xuất phiếu yêu cầu</button>
+          <button class="btn btn-outline" onclick="exportChiTietExcel()">📊 Xuất chi tiết</button>
+        </div>
       </div>
 
-      <div class="card-title" style="margin-bottom:10px;">👷 Danh sách cấp phát theo nhân viên</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">👷 Danh sách cấp phát theo nhân viên</div>
+        <div id="bc-fill-btn-wrap" style="display:none;">
+          <button class="btn btn-outline" onclick="fillTheoTinhMuc()"
+            style="font-size:12.5px;padding:6px 14px;border-color:var(--accent);color:var(--accent);"
+            title="Tự động điền số lượng thực tế bằng số lượng theo định mức cho tất cả nhân viên">
+            ⚡ Điền theo định mức
+          </button>
+        </div>
+      </div>
       <div class="table-wrap" style="margin-bottom:20px;">
         <table>
           <thead><tr>
@@ -2737,6 +2768,33 @@ function savePhieuField(quyStr, key, field, value) {
   _updateSummaryTable(quyStr);
 }
 
+/** Điền tất cả thực tế = định mức cho quý đang xem, rồi re-render */
+function fillTheoTinhMuc() {
+  const sel = document.getElementById('bc-quy');
+  if (!sel || !sel.value) { showToast('⚠️ Vui lòng chọn quý trước!', 'warning'); return; }
+  if (!_lastBcRows.length)  { showToast('⚠️ Không có dữ liệu để điền!', 'warning'); return; }
+  const quyStr = sel.value;
+
+  // Kiểm tra xem đã có thực tế chưa → xác nhận trước khi ghi đè
+  const qData = phieuData[quyStr] || {};
+  const hasExisting = Object.values(qData).some(v => v.thucTe !== '' && v.thucTe !== undefined);
+  if (hasExisting) {
+    if (!confirm('Đã có số lượng thực tế được nhập. Bạn có muốn ghi đè tất cả bằng số định mức không?')) return;
+  }
+
+  if (!phieuData[quyStr]) phieuData[quyStr] = {};
+  _lastBcRows.forEach(r => {
+    r.items.forEach(it => {
+      const key = `${r.nv.id}_${it.tbId}`;
+      if (!phieuData[quyStr][key]) phieuData[quyStr][key] = {};
+      phieuData[quyStr][key].thucTe = it.soLuong; // giữ nguyên ghiChu nếu có
+    });
+  });
+  saveData('phieu-data', phieuData);
+  renderBaoCaoQuy();
+  showToast(`✅ Đã điền thực tế theo định mức cho ${_lastBcRows.length} nhân viên!`, 'success');
+}
+
 // Tính tổng hợp kèm thực tế
 function _computeSummaryFull(rows, quyStr) {
   const qData = phieuData[quyStr] || {};
@@ -2782,6 +2840,10 @@ function renderBaoCaoQuy() {
   if (!sel) return;
   const quyStr = sel.value;
   if (!quyStr) return;
+
+  // Hiện nút "Điền theo định mức" chỉ khi có quyền nhập
+  const fillBtnWrap = document.getElementById('bc-fill-btn-wrap');
+  if (fillBtnWrap) fillBtnWrap.style.display = !isViewOnly() ? '' : 'none';
 
   const filterDonVi = _currentUnitUser
     ? _currentUnitUser.donVi
@@ -2887,6 +2949,224 @@ function exportQuyCSV() {
   showToast(`Đã xuất phiếu yêu cầu ${quyStr} – ${donViLabel}!`);
 }
 
+
+/** Xuất phiếu yêu cầu BHLĐ ra file Word (.doc) theo mẫu QT-KTVT-05/BM-03 */
+function exportPhieuWord() {
+  const sel = document.getElementById('bc-quy');
+  if (!sel || !sel.value) { showToast('⚠️ Vui lòng chọn quý trước!', 'warning'); return; }
+  const quyStr = sel.value;
+  const filterDonVi = _currentUnitUser
+    ? _currentUnitUser.donVi
+    : (document.getElementById('bc-don-vi')?.value || '');
+  if (!filterDonVi) { showToast('⚠️ Vui lòng chọn đơn vị để xuất phiếu!', 'warning'); return; }
+
+  const { rows } = computeQuyData(quyStr, filterDonVi);
+  const sumFull  = _computeSummaryFull(rows, quyStr);
+  const [q, y]   = quyStr.split('/');
+  const quyLabel = `Quý ${q.slice(1)} năm ${y}`;
+
+  const td  = `border:1px solid #000;padding:4px 6px;vertical-align:middle;`;
+  const th  = td + `text-align:center;background:#efefef;font-weight:bold;`;
+
+  const dataRows = sumFull.map((s, i) => `
+    <tr>
+      <td style="${td}text-align:center;">${i + 1}</td>
+      <td style="${td}">${s.ma || ''}</td>
+      <td style="${td}">${s.ten}</td>
+      <td style="${td}text-align:center;">${s.donVi}</td>
+      <td style="${td}text-align:center;">${s.dinhMuc}</td>
+      <td style="${td}text-align:center;">${s.hasThucTe ? s.thucTe : ''}</td>
+      <td style="${td}"></td>
+    </tr>`).join('');
+
+  // 2 dòng trống cuối bảng
+  const blankRow = `<tr>${'<td style="' + td + '">&nbsp;</td>'.repeat(7)}</tr>`;
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:w="urn:schemas-microsoft-com:office:word"
+    xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<style>
+  @page { margin:2cm 2cm 2cm 2.5cm; size:A4 portrait; }
+  body { font-family:"Times New Roman",serif; font-size:12pt; color:#000; }
+  table { border-collapse:collapse; }
+  p { margin:0; }
+</style>
+</head>
+<body>
+
+<!-- === Tiêu đề tài liệu === -->
+<table style="width:100%;margin-bottom:10pt;">
+  <tr>
+    <td rowspan="3" style="${td}width:62%;text-align:center;font-size:11pt;">
+      <strong>XN DVC&amp;CƯVTTB</strong><br>
+      <strong>QUY TRÌNH</strong><br>
+      CẤP PHÁT TRANG BỊ BẢO HỘ LAO ĐỘNG VÀ PHƯƠNG TIỆN BẢO HỘ CÁ NHÂN
+    </td>
+    <td style="${td}text-align:center;font-weight:bold;">QT-KTVT-05/BM-03</td>
+  </tr>
+  <tr>
+    <td style="${td}">Lần ban hành: 01</td>
+  </tr>
+  <tr>
+    <td style="${td}">Ngày hiệu lực: 01.02.2022</td>
+  </tr>
+</table>
+
+<p style="margin:8pt 0 14pt;"><strong>Đơn vị: ${filterDonVi}</strong></p>
+
+<!-- === Thỏa thuận / Phê duyệt === -->
+<table style="width:100%;margin-bottom:12pt;">
+  <tr>
+    <td style="width:50%;text-align:center;padding:4pt 8pt 36pt;vertical-align:top;">
+      <strong>THỎA THUẬN</strong><br><em>Phó giám đốc</em>
+    </td>
+    <td style="width:50%;text-align:center;padding:4pt 8pt 36pt;vertical-align:top;">
+      <strong>PHÊ DUYỆT</strong><br><em>Giám đốc XN DVC&amp;CƯVTTB</em>
+    </td>
+  </tr>
+</table>
+
+<!-- === Tên phiếu === -->
+<p style="text-align:center;font-weight:bold;font-size:14pt;margin-bottom:2pt;">PHIẾU YÊU CẦU CẤP BẢO HỘ LAO ĐỘNG</p>
+<p style="text-align:center;font-weight:bold;font-size:12pt;margin-bottom:14pt;">${quyLabel}</p>
+
+<!-- === Bảng trang bị === -->
+<table style="width:100%;">
+  <thead>
+    <tr>
+      <th rowspan="2" style="${th}width:5%;">STT</th>
+      <th rowspan="2" style="${th}width:14%;">Mã vật tư</th>
+      <th rowspan="2" style="${th}width:37%;">Tên vật tư</th>
+      <th rowspan="2" style="${th}width:9%;">Đơn vị tính</th>
+      <th colspan="2" style="${th}width:19%;">Số lượng</th>
+      <th rowspan="2" style="${th}width:16%;">Ghi chú</th>
+    </tr>
+    <tr>
+      <th style="${th}">Yêu cầu</th>
+      <th style="${th}">Thực xuất</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${dataRows}
+    ${blankRow}
+    ${blankRow}
+  </tbody>
+</table>
+
+<!-- === Chữ ký === -->
+<table style="width:100%;margin-top:26pt;">
+  <tr>
+    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Trưởng phòng KTVT</strong></td>
+    <td style="width:34%;text-align:center;padding:4pt 4pt 52pt;"><strong>Thủ kho</strong></td>
+    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Cảng trưởng</strong></td>
+  </tr>
+  <tr>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+  </tr>
+</table>
+<table style="width:100%;margin-top:12pt;">
+  <tr>
+    <td style="width:34%;padding:4pt 4pt 52pt;"><strong>Người phụ trách đơn vị</strong></td>
+    <td style="width:66%;"></td>
+  </tr>
+  <tr>
+    <td style="padding:2pt;">&nbsp;</td>
+    <td></td>
+  </tr>
+</table>
+
+</body></html>`;
+
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const dvSlug = filterDonVi.replace(/\s+/g, '-');
+  a.download = `phieu-yeu-cau-bhld-${quyStr.replace('/', '-')}-${dvSlug}.doc`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast(`✅ Đã xuất phiếu Word – ${quyStr} – ${filterDonVi}!`, 'success');
+}
+
+/** Xuất chi tiết cấp phát theo từng nhân viên ra file Excel (.xlsx) — dùng SheetJS */
+async function exportChiTietExcel() {
+  const sel = document.getElementById('bc-quy');
+  if (!sel || !sel.value) { showToast('⚠️ Vui lòng chọn quý trước!', 'warning'); return; }
+  const quyStr = sel.value;
+  const filterDonVi = _currentUnitUser
+    ? _currentUnitUser.donVi
+    : (document.getElementById('bc-don-vi')?.value || '');
+  if (!filterDonVi) { showToast('⚠️ Vui lòng chọn đơn vị để xuất chi tiết!', 'warning'); return; }
+
+  // Lazy-load SheetJS lần đầu
+  if (!window.XLSX) {
+    showToast('⏳ Đang tải thư viện Excel...');
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload  = resolve;
+        s.onerror = () => reject(new Error('Không tải được thư viện. Kiểm tra kết nối mạng.'));
+        document.head.appendChild(s);
+      });
+    } catch(e) { showToast('❌ ' + e.message, 'error'); return; }
+  }
+
+  const { rows } = computeQuyData(quyStr, filterDonVi);
+  const qData    = phieuData[quyStr] || {};
+  const sumFull  = _computeSummaryFull(rows, quyStr);
+  const [q, y]   = quyStr.split('/');
+  const quyLabel = `Quý ${q.slice(1)} năm ${y}`;
+
+  const wb = XLSX.utils.book_new();
+
+  // --- Sheet 1: Chi tiết theo nhân viên ---
+  const s1 = [
+    [`DANH SÁCH CẤP PHÁT BHLĐ – ${quyLabel} – ${filterDonVi}`],
+    [],
+    ['STT', 'Danh số', 'Họ và Tên', 'Chức danh', 'Đơn vị', 'Trang bị BHLĐ', 'SL định mức', 'SL thực tế', 'Ghi chú']
+  ];
+  let stt = 0;
+  rows.forEach(r => {
+    stt++;
+    r.items.forEach((it, j) => {
+      const key   = `${r.nv.id}_${it.tbId}`;
+      const saved = qData[key] || {};
+      const tt    = saved.thucTe !== undefined && saved.thucTe !== '' ? saved.thucTe : '';
+      const gc    = saved.ghiChu || '';
+      if (j === 0) {
+        s1.push([stt, r.nv.ma, r.nv.ten, r.nv.chucDanh, r.nv.boPhan || '', it.ten, it.soLuong, tt, gc]);
+      } else {
+        s1.push(['', '', '', '', '', it.ten, it.soLuong, tt, gc]);
+      }
+    });
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols'] = [{wch:6},{wch:12},{wch:24},{wch:22},{wch:20},{wch:32},{wch:13},{wch:13},{wch:24}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Chi tiết NV');
+
+  // --- Sheet 2: Tổng hợp (giống format phiếu Word) ---
+  const s2 = [
+    ['PHIẾU YÊU CẦU CẤP BẢO HỘ LAO ĐỘNG'],
+    [quyLabel],
+    [`Đơn vị: ${filterDonVi}`],
+    [],
+    ['STT', 'Mã vật tư', 'Tên vật tư', 'Đơn vị tính', 'Yêu cầu', 'Thực xuất', 'Ghi chú']
+  ];
+  sumFull.forEach((s, i) => {
+    s2.push([i + 1, s.ma || '', s.ten, s.donVi, s.dinhMuc, s.hasThucTe ? s.thucTe : '', '']);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols'] = [{wch:6},{wch:16},{wch:34},{wch:13},{wch:10},{wch:10},{wch:24}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Tổng hợp');
+
+  const dvSlug = filterDonVi.replace(/\s+/g, '-');
+  XLSX.writeFile(wb, `chi-tiet-bhld-${quyStr.replace('/', '-')}-${dvSlug}.xlsx`);
+  showToast(`✅ Đã xuất Excel – ${quyStr} – ${filterDonVi}!`, 'success');
+}
 
 // =====================================================
 //  LOẠI NHÂN VIÊN & LOGIC TÍNH LỊCH CẤP PHÁT
@@ -3022,9 +3302,18 @@ function saveSyncUrl() {
 
 function syncLog(msg, type) {
   const el = document.getElementById('sync-log');
-  if (!el) return;
-  const color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--text)';
-  el.innerHTML = `<span style="color:${color};">${msg}</span>`;
+  if (el) {
+    const color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--text)';
+    el.innerHTML = `<span style="color:${color};">${msg}</span>`;
+  }
+  // Khi modal đóng, hiện toast để người dùng biết kết quả
+  const modal = document.getElementById('modal-sync');
+  const modalOpen = modal && modal.classList.contains('open');
+  if (!modalOpen) {
+    if (type === 'error')   showToast('❌ ' + msg, 'error');
+    else if (type === 'success') showToast('✅ ' + msg, 'success');
+    // type không xác định (⏳) không toast để tránh spam
+  }
 }
 
 async function sheetGet(key) {
@@ -3458,6 +3747,17 @@ function updateHeaderUser() {
     el.innerHTML = `
       <button onclick="showLoginOverlay()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:white;cursor:pointer;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;">🔑 Đăng nhập</button>`;
   }
+  updateHeaderSyncBtns();
+}
+
+/** Hiện/ẩn các nút đồng bộ trên header theo trạng thái đăng nhập */
+function updateHeaderSyncBtns() {
+  const btnSubmit   = document.getElementById('btn-submit-header');
+  const btnPushAll  = document.getElementById('btn-push-all-header');
+  const btnSettings = document.getElementById('btn-sync-settings');
+  if (btnSubmit)   btnSubmit.style.display   = _currentUnitUser ? '' : 'none';
+  if (btnPushAll)  btnPushAll.style.display  = _adminLoggedIn   ? '' : 'none';
+  if (btnSettings) btnSettings.style.display = _adminLoggedIn   ? '' : 'none';
 }
 
 // =====================================================
@@ -4119,6 +4419,7 @@ function adminLogin() {
     loadPendingList();
     const adminSec = document.getElementById('sync-admin-section');
     if (adminSec) adminSec.style.display = 'block';
+    updateHeaderSyncBtns();
   } else {
     errEl.style.display = 'block';
     document.getElementById('admin-pass-input').value = '';
@@ -4133,6 +4434,7 @@ function adminLogout() {
   document.getElementById('admin-pass-input').value = '';
   const adminSec = document.getElementById('sync-admin-section');
   if (adminSec) adminSec.style.display = 'none';
+  updateHeaderSyncBtns();
 }
 
 function adminSwitchTab(tab) {
