@@ -367,6 +367,10 @@
   <div class="nav-item" id="nav-tai-khoan" style="display:none;" onclick="showPage('tai-khoan')">
     <span class="nav-icon">👤</span> Tài khoản
   </div>
+  <div class="nav-item" id="nav-theo-doi" style="display:none;" onclick="showPage('theo-doi')">
+    <span class="nav-icon">📬</span> Theo dõi yêu cầu
+    <span id="theo-doi-badge" style="display:none;margin-left:auto;background:var(--accent);color:white;border-radius:10px;font-size:11px;font-weight:700;padding:1px 7px;min-width:20px;text-align:center;"></span>
+  </div>
 </nav>
 
 <!-- MAIN CONTENT -->
@@ -570,9 +574,16 @@
           <label style="font-size:13px;font-weight:600;color:var(--text-light);">Đơn vị:</label>
           <select id="bc-don-vi" onchange="renderBaoCaoQuy()" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:7px;font-size:13.5px;min-width:180px;"></select>
         </div>
-        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-primary" onclick="exportPhieuWord()">📄 Xuất phiếu yêu cầu</button>
           <button class="btn btn-outline" onclick="exportChiTietExcel()">📊 Xuất chi tiết</button>
+          <div id="bc-submit-phieu-wrap" style="display:none;">
+            <button class="btn" id="btn-submit-phieu" onclick="submitPhieuForApproval()"
+              style="background:var(--success);color:white;font-size:13px;padding:8px 16px;"
+              title="Gửi phiếu thực tế lên Admin để phê duyệt và cập nhật ngày cấp">
+              📤 Gửi phê duyệt phiếu
+            </button>
+          </div>
         </div>
       </div>
 
@@ -804,6 +815,10 @@
         <div class="admin-tab active" id="admin-tab-pending" onclick="adminSwitchTab('pending')">
           📋 Phê duyệt nhân sự
         </div>
+        <div class="admin-tab" id="admin-tab-phieu" onclick="adminSwitchTab('phieu')">
+          📄 Phê duyệt phiếu BHLĐ
+          <span id="admin-phieu-badge" style="display:none;margin-left:6px;background:var(--accent);color:white;border-radius:10px;font-size:11px;font-weight:700;padding:1px 7px;"></span>
+        </div>
         <div class="admin-tab" id="admin-tab-accounts" onclick="adminSwitchTab('accounts')">
           👤 Quản lý tài khoản
         </div>
@@ -819,6 +834,16 @@
         </div>
         <div id="pending-list-container">
           <div style="text-align:center;padding:48px;color:var(--text-light);">Đang tải danh sách yêu cầu...</div>
+        </div>
+      </div>
+
+      <!-- PANEL: PHÊ DUYỆT PHIẾU BHLĐ -->
+      <div id="admin-panel-phieu" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <button class="btn btn-primary" onclick="loadPhieuRequestList()">🔄 Làm mới</button>
+        </div>
+        <div id="phieu-request-container">
+          <div style="text-align:center;padding:48px;color:var(--text-light);">Nhấn "Làm mới" để tải danh sách phiếu.</div>
         </div>
       </div>
 
@@ -882,6 +907,85 @@
   </div>
 
   <!-- ===== TRANG TÀI KHOẢN ===== -->
+  <!-- ============================
+       TRANG: THEO DÕI YÊU CẦU
+       ============================ -->
+  <div id="page-theo-doi" class="page">
+    <div class="page-title">📬 Theo dõi yêu cầu phê duyệt</div>
+
+    <!-- Thống kê nhanh -->
+    <div id="theo-doi-stats" class="stats-grid" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-icon orange">⏳</div>
+        <div>
+          <div class="stat-value" id="td-stat-pending">—</div>
+          <div class="stat-label">Đang chờ duyệt</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div>
+          <div class="stat-value" id="td-stat-approved">—</div>
+          <div class="stat-label">Đã được duyệt</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">❌</div>
+        <div>
+          <div class="stat-value" id="td-stat-rejected">—</div>
+          <div class="stat-label">Bị từ chối</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">📋</div>
+        <div>
+          <div class="stat-value" id="td-stat-total">—</div>
+          <div class="stat-label">Tổng yêu cầu</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng danh sách yêu cầu -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">📋 Lịch sử yêu cầu của đơn vị</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="td-filter-status" onchange="renderTheoDoiRequests()"
+            style="font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:7px;color:var(--text);background:white;">
+            <option value="">Tất cả trạng thái</option>
+            <option value="pending">⏳ Chờ duyệt</option>
+            <option value="approved">✅ Đã duyệt</option>
+            <option value="rejected">❌ Từ chối (nhân sự)</option>
+            <option value="returned">↩ Trả về (phiếu BHLĐ)</option>
+          </select>
+          <button class="btn btn-outline" onclick="loadTheoDoiRequests()" style="font-size:12.5px;padding:6px 14px;">
+            🔄 Làm mới
+          </button>
+          <button id="btn-clear-history" class="btn" onclick="clearTheoDoiHistory()"
+            style="display:none;font-size:12.5px;padding:6px 14px;background:#fff0f0;color:var(--danger);border:1px solid #f5c6c6;">
+            🗑️ Xóa lịch sử đã xử lý
+          </button>
+        </div>
+      </div>
+      <div id="theo-doi-container">
+        <div style="text-align:center;padding:48px;color:var(--text-light);">
+          ⏳ Đang tải dữ liệu...
+        </div>
+      </div>
+    </div>
+
+    <!-- Hướng dẫn -->
+    <div class="card" style="background:linear-gradient(135deg,#eef3fb 0%,#f8fbff 100%);border-left:4px solid var(--primary-light);">
+      <div style="font-size:13px;color:var(--text);line-height:1.7;">
+        <strong style="color:var(--primary);">ℹ️ Hướng dẫn:</strong>
+        Sau khi bấm <strong>📨 Gửi phê duyệt nhân sự</strong>, yêu cầu sẽ xuất hiện ở đây với trạng thái
+        <span style="background:#fff3cd;color:#856404;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;">⏳ Chờ duyệt</span>.
+        Quản trị viên sẽ xem xét và duyệt hoặc từ chối. Trang này tự động tải khi bạn vào.
+        Bấm <strong>🔄 Làm mới</strong> để cập nhật trạng thái mới nhất.
+      </div>
+    </div>
+  </div>
+
   <div id="page-tai-khoan" class="page">
     <div class="page-header">
       <h2>👤 Tài khoản của tôi</h2>
@@ -1377,7 +1481,8 @@ function saveData(key, data) {
 
 // Dữ liệu mẫu ban đầu nếu chưa có
 let daNhanVien = loadData('nhanvien', []);
-let phieuData  = loadData('phieu-data', {}); // { [quyStr]: { [nvId_tbId]: { thucTe, ghiChu } } }
+let phieuData     = loadData('phieu-data',     {}); // { [quyStr]: { [nvId_tbId]: { thucTe, ghiChu } } }
+let phieuRequests = loadData('phieu-requests', []); // mảng phiếu yêu cầu gửi phê duyệt
 
 // Danh mục BHLĐ chuẩn
 // IDs 1–14: được định mức tham chiếu (giữ nguyên ID để không hỏng định mức)
@@ -1626,6 +1731,7 @@ function showPage(page) {
   if (page === 'quan-tri' && _adminLoggedIn) loadPendingList();
   if (page === 'tai-khoan') renderTaiKhoan();
   if (page === 'ton-kho')  renderTonKho();
+  if (page === 'theo-doi') loadTheoDoiRequests();
 }
 
 /** Ẩn/hiện mục Quản trị và Tài khoản trên nav theo trạng thái đăng nhập */
@@ -1639,6 +1745,11 @@ function updateNavVisibility() {
   if (navTk) {
     // Hiện Tài khoản chỉ khi người dùng đơn vị đã đăng nhập
     navTk.style.display = _currentUnitUser ? '' : 'none';
+  }
+  const navTd = document.getElementById('nav-theo-doi');
+  if (navTd) {
+    // Hiện Theo dõi yêu cầu chỉ khi người dùng đơn vị đã đăng nhập
+    navTd.style.display = _currentUnitUser ? '' : 'none';
   }
 }
 
@@ -2795,6 +2906,72 @@ function fillTheoTinhMuc() {
   showToast(`✅ Đã điền thực tế theo định mức cho ${_lastBcRows.length} nhân viên!`, 'success');
 }
 
+/** Đơn vị: Gửi phiếu thực tế lên Admin để phê duyệt và cập nhật ngày cấp */
+async function submitPhieuForApproval() {
+  if (!_currentUnitUser) { showToast('⛔ Vui lòng đăng nhập tài khoản đơn vị!', 'error'); return; }
+  if (!_sheetUrl)         { showToast('⚠️ Chưa có URL Google Sheets!', 'error'); return; }
+
+  const sel = document.getElementById('bc-quy');
+  if (!sel || !sel.value) { showToast('⚠️ Vui lòng chọn quý trước!', 'warning'); return; }
+  const quyStr = sel.value;
+  const donVi  = _currentUnitUser.donVi;
+
+  // Lấy snapshot thực tế của quý/đơn vị này
+  const qData = phieuData[quyStr] || {};
+  const { rows } = computeQuyData(quyStr, donVi);
+  if (!rows.length) { showToast('⚠️ Không có nhân viên nào trong phiếu quý này!', 'warning'); return; }
+
+  // Lọc chỉ những key thuộc đơn vị này và có thực tế > 0
+  const nvIds = new Set(rows.map(r => r.nv.id));
+  const hasThucTe = Object.entries(qData).some(([k, v]) => {
+    const nvId = k.split('_')[0];
+    return nvIds.has(nvId) && v.thucTe !== '' && v.thucTe !== undefined && v.thucTe > 0;
+  });
+  if (!hasThucTe) {
+    showToast('⚠️ Chưa có số lượng thực tế nào được nhập cho quý này!', 'warning');
+    return;
+  }
+
+  // Tạo snapshot — chỉ lưu các dòng thuộc đơn vị
+  const snapshot = {};
+  Object.entries(qData).forEach(([k, v]) => {
+    const nvId = k.split('_')[0];
+    if (nvIds.has(nvId)) snapshot[k] = { ...v };
+  });
+
+  // Kiểm tra trùng lặp: đã có phiếu pending cho cùng quý + đơn vị chưa?
+  try {
+    const existingArr = await sheetGet('phieu-requests');
+    const existing   = Array.isArray(existingArr) ? existingArr : [];
+    const trung = existing.filter(r => r.donVi === donVi && r.quyStr === quyStr && r.status === 'pending');
+    if (trung.length > 0) {
+      const lanCuoi = new Date(trung[trung.length - 1].timestamp).toLocaleString('vi-VN');
+      if (!confirm(`⚠️ Đã có phiếu "${quyStr}" của "${donVi}" đang chờ duyệt (gần nhất: ${lanCuoi}).\nGửi thêm có thể gây trùng. Tiếp tục?`)) return;
+    }
+
+    const newReq = {
+      id:        Date.now().toString(),
+      type:      'phieu-bhld',
+      donVi,
+      email:     _currentUnitUser.email,
+      quyStr,
+      timestamp: new Date().toISOString(),
+      status:    'pending',
+      adminNote: '',
+      snapshot,
+    };
+
+    existing.push(newReq);
+    await sheetPost('phieu-requests', existing);
+    phieuRequests = existing;
+    saveData('phieu-requests', phieuRequests);
+
+    showToast(`✅ Đã gửi phiếu ${quyStr} lên Admin để phê duyệt!`, 'success');
+  } catch(e) {
+    showToast('❌ Lỗi khi gửi: ' + e.message, 'error');
+  }
+}
+
 // Tính tổng hợp kèm thực tế
 function _computeSummaryFull(rows, quyStr) {
   const qData = phieuData[quyStr] || {};
@@ -2841,9 +3018,11 @@ function renderBaoCaoQuy() {
   const quyStr = sel.value;
   if (!quyStr) return;
 
-  // Hiện nút "Điền theo định mức" chỉ khi có quyền nhập
+  // Hiện nút "Điền theo định mức" và "Gửi phê duyệt phiếu" chỉ khi có quyền nhập
   const fillBtnWrap = document.getElementById('bc-fill-btn-wrap');
   if (fillBtnWrap) fillBtnWrap.style.display = !isViewOnly() ? '' : 'none';
+  const submitPhieuWrap = document.getElementById('bc-submit-phieu-wrap');
+  if (submitPhieuWrap) submitPhieuWrap.style.display = _currentUnitUser ? '' : 'none';
 
   const filterDonVi = _currentUnitUser
     ? _currentUnitUser.donVi
@@ -2974,8 +3153,8 @@ function exportPhieuWord() {
       <td style="${td}">${s.ma || ''}</td>
       <td style="${td}">${s.ten}</td>
       <td style="${td}text-align:center;">${s.donVi}</td>
-      <td style="${td}text-align:center;">${s.dinhMuc}</td>
       <td style="${td}text-align:center;">${s.hasThucTe ? s.thucTe : ''}</td>
+      <td style="${td}"></td>
       <td style="${td}"></td>
     </tr>`).join('');
 
@@ -4438,12 +4617,13 @@ function adminLogout() {
 }
 
 function adminSwitchTab(tab) {
-  ['pending','accounts','settings'].forEach(t => {
+  ['pending','phieu','accounts','settings'].forEach(t => {
     document.getElementById(`admin-tab-${t}`)?.classList.toggle('active', t === tab);
-    document.getElementById(`admin-panel-${t}`).style.display = t === tab ? 'block' : 'none';
+    document.getElementById(`admin-panel-${t}`)?.style && (document.getElementById(`admin-panel-${t}`).style.display = t === tab ? 'block' : 'none');
   });
   if (tab === 'accounts') loadAccountsList();
   if (tab === 'settings') renderAdminProfileForm();
+  if (tab === 'phieu')    loadPhieuRequestList();
 }
 
 function renderAdminProfileForm() {
@@ -4866,6 +5046,435 @@ async function rejectPending(id) {
     renderPendingList();
     showToast(`❌ Đã từ chối yêu cầu từ "${p.donVi}".`);
   } catch(e) { showToast('❌ Lỗi: ' + e.message); }
+}
+
+// =====================================================
+//  THEO DÕI YÊU CẦU (đơn vị)
+// =====================================================
+let _theoDoiList = []; // cache danh sách pending của đơn vị hiện tại
+
+/** Tải cả 2 loại yêu cầu (nhân sự + phiếu BHLĐ) từ Sheets, lọc theo đơn vị đang đăng nhập */
+async function loadTheoDoiRequests() {
+  const container = document.getElementById('theo-doi-container');
+  if (!container) return;
+  if (!_currentUnitUser) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--accent);">⚠️ Vui lòng đăng nhập tài khoản đơn vị để xem yêu cầu.</div>';
+    return;
+  }
+  if (!_sheetUrl) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--accent);">⚠️ Chưa cấu hình URL Google Sheets. Vào ☁️ Đồng bộ để nhập URL.</div>';
+    return;
+  }
+  container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-light);">⏳ Đang tải dữ liệu...</div>';
+  try {
+    const donVi = _currentUnitUser.donVi;
+    const [nhanSuData, phieuData2] = await Promise.all([
+      sheetGet('pending'),
+      sheetGet('phieu-requests'),
+    ]);
+    const nhanSu = (Array.isArray(nhanSuData) ? nhanSuData : [])
+      .filter(p => p.donVi === donVi)
+      .map(p => ({ ...p, _loai: 'nhan-su' }));
+    const phieu = (Array.isArray(phieuData2) ? phieuData2 : [])
+      .filter(p => p.donVi === donVi)
+      .map(p => ({ ...p, _loai: 'phieu-bhld' }));
+    _theoDoiList = [...nhanSu, ...phieu]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    renderTheoDoiRequests();
+    const pendingCount = _theoDoiList.filter(p => p.status === 'pending').length;
+    const badge = document.getElementById('theo-doi-badge');
+    if (badge) { badge.style.display = pendingCount > 0 ? '' : 'none'; badge.textContent = pendingCount; }
+  } catch(e) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--accent);">❌ Không thể tải dữ liệu. Kiểm tra kết nối và URL.</div>';
+  }
+}
+
+/** Render danh sách yêu cầu đã cache, áp dụng filter trạng thái */
+function renderTheoDoiRequests() {
+  const container = document.getElementById('theo-doi-container');
+  if (!container) return;
+
+  const filterStatus = document.getElementById('td-filter-status')?.value || '';
+  const list = filterStatus ? _theoDoiList.filter(p => p.status === filterStatus) : _theoDoiList;
+
+  // Hiện/ẩn nút "Xóa lịch sử đã xử lý" — chỉ khi có bản đã xử lý (approved/rejected)
+  const btnClearHistory = document.getElementById('btn-clear-history');
+  const doneCnt = _theoDoiList.filter(p => p.status !== 'pending').length;
+  if (btnClearHistory) btnClearHistory.style.display = (doneCnt > 0 && _currentUnitUser) ? '' : 'none';
+
+  // Cập nhật số liệu thống kê
+  const pendingCnt  = _theoDoiList.filter(p => p.status === 'pending').length;
+  const approvedCnt = _theoDoiList.filter(p => p.status === 'approved').length;
+  const rejectedCnt = _theoDoiList.filter(p => p.status === 'rejected' || p.status === 'returned').length;
+  const totalCnt    = _theoDoiList.length;
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('td-stat-pending',  pendingCnt);
+  setEl('td-stat-approved', approvedCnt);
+  setEl('td-stat-rejected', rejectedCnt);
+  setEl('td-stat-total',    totalCnt);
+
+  if (list.length === 0) {
+    const msg = totalCnt === 0
+      ? '📭 Đơn vị chưa gửi yêu cầu phê duyệt nào. Hãy sử dụng nút <strong>📨 Gửi phê duyệt nhân sự</strong> trên thanh tiêu đề.'
+      : '🔍 Không có yêu cầu nào phù hợp với bộ lọc đã chọn.';
+    container.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-light);">${msg}</div>`;
+    return;
+  }
+
+  const statusConfig = {
+    pending:  { badge: '<span style="background:#fff3cd;color:#856404;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">⏳ Chờ duyệt</span>',  bar: '#f0c040', label: 'Chờ quản trị viên xem xét' },
+    approved: { badge: '<span style="background:#d1eddf;color:#155724;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ Đã duyệt</span>',   bar: '#27ae60', label: 'Yêu cầu đã được chấp nhận' },
+    rejected: { badge: '<span style="background:#f8d7da;color:#721c24;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">❌ Từ chối</span>',     bar: '#e74c3c', label: 'Yêu cầu bị từ chối' },
+    returned: { badge: '<span style="background:#f8d7da;color:#721c24;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">↩ Trả về</span>',      bar: '#e74c3c', label: 'Phiếu bị trả về — cần chỉnh sửa và gửi lại' },
+  };
+
+  let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+
+  list.forEach((p, idx) => {
+    const cfg = statusConfig[p.status] || statusConfig.pending;
+    const ts = new Date(p.timestamp).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+    const submitted = Array.isArray(p.nhanvien) ? p.nhanvien : [];
+    const base = Array.isArray(p.serverSnapshot) ? p.serverSnapshot : [];
+    const diff = computeDiff(submitted, base);
+
+    // Dòng thời gian xử lý (approved/rejected)
+    let processedLine = '';
+    if (p.status === 'approved' && p.approvedAt) {
+      const ats = new Date(p.approvedAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+      processedLine = `<div style="font-size:11.5px;color:var(--success);margin-top:2px;">✅ Duyệt lúc: ${ats}</div>`;
+    } else if (p.status === 'rejected' && p.rejectedAt) {
+      const rts = new Date(p.rejectedAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+      processedLine = `<div style="font-size:11.5px;color:var(--danger);margin-top:2px;">❌ Từ chối lúc: ${rts}</div>`;
+    }
+
+    // Tóm tắt thay đổi
+    const changes = [];
+    if (diff.added.length)     changes.push(`<span style="color:var(--success);">✚ ${diff.added.length} bổ sung</span>`);
+    if (diff.removed.length)   changes.push(`<span style="color:var(--accent);">✖ ${diff.removed.length} loại bỏ</span>`);
+    if (diff.updated.length)   changes.push(`<span style="color:var(--warning);">✎ ${diff.updated.length} thay đổi</span>`);
+    if (diff.reordered?.length) changes.push(`<span style="color:var(--primary);">↕ ${diff.reordered.length} đổi STT</span>`);
+    const changeLine = changes.length ? changes.join(' &nbsp;·&nbsp; ') : `<span style="color:var(--text-light);">Không có thay đổi</span>`;
+
+    // Mở rộng diff chi tiết (collapsible)
+    const diffHtml = buildDiffHTML(diff);
+    const collapseId = `td-diff-${p.id || idx}`;
+    const hasDiff = diff.added.length || diff.removed.length || diff.updated.length || (diff.reordered?.length || 0);
+    const detailBtn = hasDiff
+      ? `<button onclick="document.getElementById('${collapseId}').style.display=document.getElementById('${collapseId}').style.display==='none'?'block':'none'"
+           style="font-size:12px;border:none;background:none;color:var(--primary-light);cursor:pointer;padding:0;margin-top:8px;font-weight:600;">
+           🔍 Xem chi tiết thay đổi ▾
+         </button>
+         <div id="${collapseId}" style="display:none;margin-top:10px;">${diffHtml}</div>`
+      : '';
+
+    // Nhãn loại yêu cầu
+    const loaiTag = p._loai === 'phieu-bhld'
+      ? `<span style="background:#e8f4fd;color:var(--primary);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-right:6px;">📄 Phiếu BHLĐ ${p.quyStr || ''}</span>`
+      : `<span style="background:#f0faf4;color:var(--success);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-right:6px;">👷 Nhân sự</span>`;
+
+    // Ghi chú admin (khi bị trả về hoặc từ chối)
+    const adminNoteEl = (p.adminNote && p.status !== 'pending')
+      ? `<div style="margin-top:8px;padding:7px 10px;border-radius:6px;background:#fff8e1;font-size:12.5px;border-left:3px solid var(--warning);">💬 Ý kiến Admin: ${p.adminNote}</div>`
+      : '';
+
+    const safeId = (p.id || idx).toString().replace(/'/g, "\\'");
+    const deleteBtn = `<button onclick="deleteTheoDoiRequest('${safeId}', '${p._loai || 'nhan-su'}')"
+      title="${p.status === 'pending' ? 'Hủy và xóa yêu cầu đang chờ' : 'Xóa bản ghi lịch sử này'}"
+      style="border:none;background:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:15px;color:var(--text-light);transition:all .15s;"
+      onmouseover="this.style.background='#fde8e8';this.style.color='var(--danger)'"
+      onmouseout="this.style.background='none';this.style.color='var(--text-light)'">🗑️</button>`;
+
+    html += `
+    <div style="border-radius:10px;background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,0.07);overflow:hidden;">
+      <div style="height:4px;background:${cfg.bar};"></div>
+      <div style="padding:16px 20px;">
+        <div style="margin-bottom:6px;">${loaiTag}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);">
+              Yêu cầu #${totalCnt - (_theoDoiList.indexOf(p))}
+              <span style="font-size:12px;font-weight:400;color:var(--text-light);margin-left:6px;">🕐 ${ts}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-light);margin-top:2px;">${p._loai === 'phieu-bhld' ? '📋 Phiếu thực tế đã nhập' : `📋 ${submitted.length} nhân viên · ${changeLine}`}</div>
+            ${processedLine}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            ${cfg.badge}
+            ${deleteBtn}
+          </div>
+        </div>
+        ${adminNoteEl}
+        <div style="margin-top:10px;padding:8px 12px;border-radius:7px;background:var(--bg);font-size:12.5px;color:var(--text-light);">
+          ${cfg.label}
+        </div>
+        ${p._loai !== 'phieu-bhld' ? detailBtn : ''}
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// =====================================================
+//  ADMIN: PHÊ DUYỆT PHIẾU BHLĐ
+// =====================================================
+
+/** Map loai daDanhMuc → trường thangCap* của nhân viên */
+const LOAI_TO_THANG_CAP = {
+  'Quần áo':          'thangCapQuanAo',
+  'Giày dép':         'thangCapGiay',
+  'Mũ nón':           'thangCapNon',
+  'Bảo vệ mắt/mặt':  'thangCapKinh',
+};
+
+let _phieuRequestList = [];
+
+async function loadPhieuRequestList() {
+  const container = document.getElementById('phieu-request-container');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-light);">⏳ Đang tải...</div>';
+  try {
+    const data = await sheetGet('phieu-requests');
+    _phieuRequestList = Array.isArray(data) ? data : [];
+    // Cập nhật badge tab
+    const pendingCnt = _phieuRequestList.filter(r => r.status === 'pending').length;
+    const badge = document.getElementById('admin-phieu-badge');
+    if (badge) { badge.style.display = pendingCnt > 0 ? '' : 'none'; badge.textContent = pendingCnt; }
+    renderPhieuRequestList();
+  } catch(e) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--accent);">❌ Không thể tải dữ liệu. Kiểm tra kết nối và URL.</div>';
+  }
+}
+
+function renderPhieuRequestList() {
+  const container = document.getElementById('phieu-request-container');
+  if (!container) return;
+  const pending = _phieuRequestList.filter(r => r.status === 'pending');
+  const done    = _phieuRequestList.filter(r => r.status !== 'pending');
+
+  if (_phieuRequestList.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-light);">✅ Không có phiếu yêu cầu nào.</div>';
+    return;
+  }
+  let html = '';
+  if (pending.length > 0) {
+    html += `<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px;">⏳ Chờ phê duyệt (${pending.length})</div>`;
+    pending.forEach(r => { html += _buildPhieuCard(r, false); });
+  }
+  if (done.length > 0) {
+    html += `<div style="font-size:13px;font-weight:600;color:var(--text-light);margin:24px 0 12px;">📋 Đã xử lý (${done.length})</div>`;
+    done.forEach(r => { html += _buildPhieuCard(r, true); });
+  }
+  container.innerHTML = html;
+}
+
+function _buildPhieuCard(r, readonly) {
+  const ts = new Date(r.timestamp).toLocaleString('vi-VN');
+  const badges = {
+    pending:  '<span style="background:#fff3cd;color:#856404;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">⏳ Chờ duyệt</span>',
+    approved: '<span style="background:#d1eddf;color:#155724;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ Đã duyệt</span>',
+    returned: '<span style="background:#f8d7da;color:#721c24;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">↩ Trả về</span>',
+  };
+  const badge = badges[r.status] || '';
+  const snapshot = r.snapshot || {};
+
+  // Tóm tắt: đếm nhân viên được cấp & tổng vật tư loại tracking
+  const trackedLoais = Object.keys(LOAI_TO_THANG_CAP);
+  const nvSet = new Set();
+  let trackedCount = 0;
+  Object.entries(snapshot).forEach(([key, val]) => {
+    if (!val.thucTe || val.thucTe <= 0) return;
+    const [nvId, tbId] = key.split('_');
+    const tb = getTB(parseInt(tbId));
+    if (!tb) return;
+    nvSet.add(nvId);
+    if (trackedLoais.includes(tb.loai)) trackedCount++;
+  });
+
+  const noteEl = r.status === 'pending' ? `
+    <div style="margin-top:12px;">
+      <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px;">💬 Ghi chú (hiển thị cho đơn vị khi trả về):</label>
+      <textarea id="phieu-note-${r.id}" rows="2" placeholder="Nhập ý kiến nếu có..."
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="btn btn-primary" onclick="approvePhieuRequest('${r.id}')" style="flex:1;">✅ Chấp thuận &amp; Cập nhật ngày cấp</button>
+      <button class="btn" onclick="returnPhieuRequest('${r.id}')" style="flex:1;background:var(--warning);color:white;">↩ Trả về đơn vị</button>
+    </div>` : '';
+
+  const adminNoteEl = (r.adminNote && r.status !== 'pending')
+    ? `<div style="margin-top:10px;padding:8px 12px;border-radius:6px;background:#fff8e1;font-size:12.5px;border-left:3px solid var(--warning);">💬 Ghi chú admin: ${r.adminNote}</div>`
+    : '';
+
+  return `<div class="card" style="margin-bottom:16px;${readonly ? 'opacity:0.7;' : ''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:15px;font-weight:700;">🏢 ${r.donVi || '—'} &nbsp;·&nbsp; <span style="color:var(--primary-light);">${r.quyStr || '—'}</span></div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:2px;">👤 ${r.email || ''} &nbsp;·&nbsp; 🕐 ${ts}</div>
+      </div>
+      ${badge}
+    </div>
+    <div style="display:flex;gap:20px;margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:7px;flex-wrap:wrap;">
+      <div style="font-size:13px;">👷 Nhân viên được cấp: <strong>${nvSet.size}</strong></div>
+      <div style="font-size:13px;color:var(--primary);">📋 Dòng cần cập nhật ngày: <strong>${trackedCount}</strong></div>
+    </div>
+    ${adminNoteEl}
+    ${noteEl}
+  </div>`;
+}
+
+async function approvePhieuRequest(id) {
+  const r = _phieuRequestList.find(x => x.id === id);
+  if (!r) return;
+  const note = document.getElementById(`phieu-note-${id}`)?.value.trim() || '';
+  if (!confirm(`Chấp thuận phiếu "${r.quyStr}" của "${r.donVi}"?\nHệ thống sẽ tự động cập nhật ngày cấp cho các nhân viên được phát 4 nhóm vật tư (quần áo, giày, nón, kính).`)) return;
+
+  // Bản đồ loai → field thangCap*
+  const snapshot = r.snapshot || {};
+  let updatedCount = 0;
+
+  Object.entries(snapshot).forEach(([key, val]) => {
+    if (!val.thucTe || val.thucTe <= 0) return;
+    const parts = key.split('_');
+    const nvId = parts[0];
+    const tbId = parseInt(parts[1]);
+    const nv = daNhanVien.find(n => n.id === nvId);
+    if (!nv) return;
+    const tb = getTB(tbId);
+    if (!tb) return;
+    const field = LOAI_TO_THANG_CAP[tb.loai];
+    if (!field) return; // không phải 4 nhóm tracking → bỏ qua
+
+    // Tìm định mức của nhân viên cho trang bị này
+    const dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
+    if (!dmEntry) return;
+
+    // Tính ngày cấp dự kiến (theo lịch, không theo ngày duyệt)
+    const nextDate = tinhThangCapTiepTheo(nv, dmEntry);
+    if (!nextDate || nextDate === 'quarterly') return;
+
+    // Ghi nhận ngày đó là ngày cấp mới nhất
+    nv[field] = nextDate;
+    // Nếu là NV mới được cấp lần đầu, đánh dấu thành NV cũ để các lần sau tính từ ngày này
+    if (!nv.loaiNV || nv.loaiNV === 'moi') nv.loaiNV = 'cu';
+    updatedCount++;
+  });
+
+  try {
+    // Lưu và đẩy nhân viên
+    saveData('nhanvien', daNhanVien);
+    await sheetPost('nhanvien', daNhanVien);
+
+    // Cập nhật trạng thái phiếu
+    r.status    = 'approved';
+    r.adminNote = note;
+    r.approvedAt = new Date().toISOString();
+    const allData = await sheetGet('phieu-requests');
+    const allArr  = Array.isArray(allData) ? allData : [];
+    const idx = allArr.findIndex(x => x.id === id);
+    if (idx >= 0) allArr[idx] = r; else allArr.push(r);
+    await sheetPost('phieu-requests', allArr);
+    _phieuRequestList = allArr;
+    saveData('phieu-requests', _phieuRequestList);
+
+    renderPhieuRequestList();
+    renderDashboard();
+    // Cập nhật badge
+    const pendingCnt = _phieuRequestList.filter(x => x.status === 'pending').length;
+    const badge = document.getElementById('admin-phieu-badge');
+    if (badge) { badge.style.display = pendingCnt > 0 ? '' : 'none'; badge.textContent = pendingCnt; }
+    showToast(`✅ Đã duyệt phiếu ${r.quyStr} – cập nhật ${updatedCount} dòng ngày cấp!`, 'success');
+  } catch(e) {
+    showToast('❌ Lỗi khi duyệt: ' + e.message, 'error');
+  }
+}
+
+async function returnPhieuRequest(id) {
+  const r = _phieuRequestList.find(x => x.id === id);
+  if (!r) return;
+  const note = document.getElementById(`phieu-note-${id}`)?.value.trim() || '';
+  if (!note && !confirm('Bạn chưa nhập ghi chú. Đơn vị sẽ không biết lý do bị trả về.\nTiếp tục?')) return;
+  if (!confirm(`Trả lại phiếu "${r.quyStr}" của "${r.donVi}" về đơn vị?\nPhiếu này sẽ cần được gửi lại từ đầu.`)) return;
+
+  try {
+    r.status     = 'returned';
+    r.adminNote  = note;
+    r.returnedAt = new Date().toISOString();
+    const allData = await sheetGet('phieu-requests');
+    const allArr  = Array.isArray(allData) ? allData : [];
+    const idx = allArr.findIndex(x => x.id === id);
+    if (idx >= 0) allArr[idx] = r; else allArr.push(r);
+    await sheetPost('phieu-requests', allArr);
+    _phieuRequestList = allArr;
+    saveData('phieu-requests', _phieuRequestList);
+
+    renderPhieuRequestList();
+    const pendingCnt = _phieuRequestList.filter(x => x.status === 'pending').length;
+    const badge = document.getElementById('admin-phieu-badge');
+    if (badge) { badge.style.display = pendingCnt > 0 ? '' : 'none'; badge.textContent = pendingCnt; }
+    showToast(`↩ Đã trả lại phiếu ${r.quyStr} về đơn vị "${r.donVi}".`, 'success');
+  } catch(e) {
+    showToast('❌ Lỗi: ' + e.message, 'error');
+  }
+}
+
+/** Đơn vị: xóa 1 bản ghi yêu cầu khỏi Sheets (nhân sự hoặc phiếu BHLĐ) */
+async function deleteTheoDoiRequest(id, loai) {
+  if (!_currentUnitUser) { showToast('⛔ Chỉ tài khoản đơn vị mới được xóa lịch sử.', 'error'); return; }
+  const p = _theoDoiList.find(x => x.id === id);
+  if (!p) return;
+
+  const isPending = p.status === 'pending';
+  const ts = new Date(p.timestamp).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+  const loaiLabel = loai === 'phieu-bhld' ? `phiếu BHLĐ ${p.quyStr || ''}` : 'yêu cầu nhân sự';
+  const confirmMsg = isPending
+    ? `⚠️ Đây là ${loaiLabel} đang CHỜ DUYỆT (gửi lúc ${ts}).\n\nXóa sẽ hủy yêu cầu này hoàn toàn — Admin sẽ không còn thấy nó nữa.\n\nBạn có chắc muốn hủy và xóa?`
+    : `Xóa bản ghi ${loaiLabel}?\n🕐 Gửi lúc ${ts}\n\nThao tác không thể hoàn tác.`;
+  if (!confirm(confirmMsg)) return;
+
+  const sheetKey = loai === 'phieu-bhld' ? 'phieu-requests' : 'pending';
+  try {
+    showToast('⏳ Đang xóa...', 'info');
+    const all = await sheetGet(sheetKey);
+    const updated = Array.isArray(all) ? all.filter(x => x.id !== id) : [];
+    await sheetPost(sheetKey, updated);
+    _theoDoiList = _theoDoiList.filter(x => x.id !== id);
+    renderTheoDoiRequests();
+    const pendingCount = _theoDoiList.filter(x => x.status === 'pending').length;
+    const badge = document.getElementById('theo-doi-badge');
+    if (badge) { badge.style.display = pendingCount > 0 ? '' : 'none'; badge.textContent = pendingCount; }
+    showToast(isPending ? '🗑️ Đã hủy và xóa yêu cầu đang chờ.' : '🗑️ Đã xóa bản ghi lịch sử.', 'success');
+  } catch(e) {
+    showToast('❌ Lỗi khi xóa: ' + e.message, 'error');
+  }
+}
+
+/** Đơn vị: xóa toàn bộ lịch sử đã xử lý (approved/rejected/returned) của đơn vị — cả 2 loại */
+async function clearTheoDoiHistory() {
+  if (!_currentUnitUser) { showToast('⛔ Chỉ tài khoản đơn vị mới được xóa lịch sử.', 'error'); return; }
+  const donVi = _currentUnitUser.donVi;
+  const toDelete = _theoDoiList.filter(p => p.status !== 'pending');
+  if (toDelete.length === 0) { showToast('ℹ️ Không có lịch sử đã xử lý để xóa.', 'info'); return; }
+
+  if (!confirm(`Xóa ${toDelete.length} bản ghi đã xử lý của "${donVi}"?\n(Các yêu cầu đang chờ duyệt sẽ được giữ lại)\n\nThao tác không thể hoàn tác.`)) return;
+
+  try {
+    showToast('⏳ Đang xóa lịch sử...', 'info');
+    const nhanSuDel = new Set(toDelete.filter(p => p._loai !== 'phieu-bhld').map(p => p.id));
+    const phieuDel  = new Set(toDelete.filter(p => p._loai === 'phieu-bhld').map(p => p.id));
+
+    const [allNS, allPH] = await Promise.all([sheetGet('pending'), sheetGet('phieu-requests')]);
+    await Promise.all([
+      nhanSuDel.size > 0 ? sheetPost('pending',          (Array.isArray(allNS) ? allNS : []).filter(x => !nhanSuDel.has(x.id))) : Promise.resolve(),
+      phieuDel.size  > 0 ? sheetPost('phieu-requests',   (Array.isArray(allPH) ? allPH : []).filter(x => !phieuDel.has(x.id)))  : Promise.resolve(),
+    ]);
+    _theoDoiList = _theoDoiList.filter(p => p.status === 'pending');
+    renderTheoDoiRequests();
+    showToast(`🗑️ Đã xóa ${toDelete.length} bản ghi lịch sử.`, 'success');
+  } catch(e) {
+    showToast('❌ Lỗi khi xóa: ' + e.message, 'error');
+  }
 }
 
 let _pendingSubmitData = null; // lưu tạm dữ liệu chờ xác nhận
