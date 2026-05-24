@@ -114,6 +114,31 @@
     #tbody-nv tr.nv-drag-over { outline: 2px dashed var(--primary); background: #eaf4fb !important; }
     @keyframes pulse-badge { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.25);opacity:0.85;} }
     #sync-badge { animation: pulse-badge 1.5s infinite; justify-content:center; }
+
+    /* ===== SYNC LOADING ===== */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sync-spinner {
+      display: inline-block; width: 14px; height: 14px; flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    #sync-progress-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 3px;
+      z-index: 99999; display: none; overflow: hidden;
+      background: rgba(255,255,255,0.15);
+    }
+    #sync-progress-bar.active { display: block; }
+    #sync-progress-bar::after {
+      content: ''; position: absolute; top: 0; height: 100%;
+      width: 45%; background: linear-gradient(90deg, transparent, #4fc3f7, #fff, #4fc3f7, transparent);
+      animation: sync-slide 1.5s ease-in-out infinite;
+    }
+    @keyframes sync-slide {
+      0%   { left: -50%; }
+      100% { left: 110%; }
+    }
     .unit-group-header td { background: var(--primary) !important; color: #fff !important; font-weight: 700; font-size: 13.5px; padding: 9px 16px !important; letter-spacing: 0.2px; }
 
     /* ===== FORM ===== */
@@ -214,6 +239,9 @@
   </style>
 </head>
 <body>
+
+<!-- Progress bar đồng bộ — cố định ở đầu trang -->
+<div id="sync-progress-bar"></div>
 
 <!-- ===== MÀNG CHE ĐĂNG NHẬP ===== -->
 <div id="login-overlay">
@@ -1709,6 +1737,23 @@ function nextId(arr) {
   return arr.length === 0 ? 1 : Math.max(...arr.map(x => x.id)) + 1;
 }
 
+/** Tạo ID chữ cho nhóm theo từng đơn vị: A, B, C, D, ... AA, AB, ... */
+function nextGroupId(donVi) {
+  const existing = daGroups.filter(g => g.donVi === donVi).map(g => g.id);
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let i = 0; i < letters.length; i++) {
+    if (!existing.includes(letters[i])) return letters[i];
+  }
+  // Fallback nếu >26 nhóm
+  for (let i = 0; i < letters.length; i++) {
+    for (let j = 0; j < letters.length; j++) {
+      const id = letters[i] + letters[j];
+      if (!existing.includes(id)) return id;
+    }
+  }
+  return 'G' + existing.length;
+}
+
 // =====================================================
 //  ĐIỀU HƯỚNG TRANG
 // =====================================================
@@ -1979,12 +2024,12 @@ function _nvRow(n, idx, showDrag, showNhomCol, donViFilter) {
     const canAssign = canManageNhom(donViFilter);
     if (canAssign && groups.length > 0) {
       const opts = `<option value="">— Chưa có nhóm —</option>` +
-        groups.map(g => `<option value="${g.id}" ${n.nhomId === g.id ? 'selected' : ''}>${g.ten}</option>`).join('');
+        groups.map(g => `<option value="${g.id}" ${n.nhomId === g.id ? 'selected' : ''}>[${g.id}] ${g.ten}</option>`).join('');
       nhomCell = `<td><select onchange="setNhomNV(${n.id}, this.value)"
         style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;max-width:130px;background:white;">${opts}</select></td>`;
     } else {
       const g = n.nhomId ? daGroups.find(x => x.id === n.nhomId) : null;
-      nhomCell = `<td><span style="font-size:12px;color:${g ? 'var(--primary)' : 'var(--text-light)'};">${g ? `📁 ${g.ten}` : '—'}</span></td>`;
+      nhomCell = `<td><span style="font-size:12px;color:${g ? 'var(--primary)' : 'var(--text-light)'};">${g ? `<b>[${g.id}]</b> ${g.ten}` : '—'}</span></td>`;
     }
   }
 
@@ -2049,13 +2094,13 @@ function renderTableNV() {
       if (members.length === 0) {
         html += `<tr style="background:#f7fafd;">
           <td colspan="10" style="padding:8px 14px;font-weight:600;color:var(--primary);font-size:13px;border-bottom:1.5px solid #cdd6e8;">
-            📁 ${g.ten} <span style="font-weight:400;font-size:11.5px;color:var(--text-light);">(0 người)</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;font-weight:800;font-size:10px;border-radius:50%;width:18px;height:18px;margin-right:6px;">${g.id}</span>📁 ${g.ten} <span style="font-weight:400;font-size:11.5px;color:var(--text-light);">(0 người)</span>
           </td></tr>`;
         return;
       }
       html += `<tr style="background:#eaf2fb;">
         <td colspan="10" style="padding:9px 14px;font-weight:700;color:var(--primary);font-size:13.5px;border-bottom:2px solid var(--primary-light);">
-          📁 ${g.ten} <span style="font-weight:400;font-size:12px;color:var(--text-light);margin-left:6px;">(${members.length} người)</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;font-weight:800;font-size:11px;border-radius:50%;width:20px;height:20px;margin-right:6px;">${g.id}</span>📁 ${g.ten} <span style="font-weight:400;font-size:12px;color:var(--text-light);margin-left:6px;">(${members.length} người)</span>
         </td></tr>`;
       members.forEach(n => { html += _nvRow(n, globalIdx++, true, true, bp); });
     });
@@ -2485,11 +2530,12 @@ function renderNhomPanel(donVi) {
     list.innerHTML = groups.map(g => {
       const count = daNhanVien.filter(n => n.boPhan === donVi && n.nhomId === g.id).length;
       return `<div style="display:inline-flex;align-items:center;gap:6px;background:#eaf2fb;border:1.5px solid #b0cde8;border-radius:20px;padding:5px 12px;font-size:13px;">
-        <span style="font-weight:600;color:var(--primary);">📁 ${g.ten}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;font-weight:800;font-size:11px;border-radius:50%;width:20px;height:20px;flex-shrink:0;">${g.id}</span>
+        <span style="font-weight:600;color:var(--primary);">${g.ten}</span>
         <span style="font-size:11.5px;color:var(--text-light);">(${count})</span>
         ${canManage ? `
-          <button onclick="openModalNhom(${g.id})" title="Đổi tên" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;">✏️</button>
-          <button onclick="deleteNhom(${g.id})" title="Xóa nhóm" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;color:var(--danger);">🗑️</button>
+          <button onclick="openModalNhom('${g.id}')" title="Đổi tên" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;">✏️</button>
+          <button onclick="deleteNhom('${g.id}')" title="Xóa nhóm" style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:13px;color:var(--danger);">🗑️</button>
         ` : ''}
       </div>`;
     }).join('');
@@ -2528,7 +2574,7 @@ function saveNhom() {
     // Tạo mới — kiểm tra trùng tên trong cùng đơn vị
     const trung = daGroups.find(g => g.donVi === donVi && g.ten === ten);
     if (trung) { showToast(`Đã có nhóm tên "${ten}" trong đơn vị này!`, 'error'); return; }
-    daGroups.push({ id: nextId(daGroups), ten, donVi });
+    daGroups.push({ id: nextGroupId(donVi), ten, donVi });
     showToast(`Đã tạo nhóm "${ten}"!`);
   }
 
@@ -2563,7 +2609,7 @@ function deleteNhom(id) {
 
 /** Gán nhân viên vào nhóm — gọi từ <select> trong row */
 function setNhomNV(nvId, nhomIdStr) {
-  const nhomId = nhomIdStr === '' ? null : parseInt(nhomIdStr);
+  const nhomId = nhomIdStr === '' ? null : nhomIdStr;
   const idx = daNhanVien.findIndex(n => n.id === nvId);
   if (idx < 0) return;
   daNhanVien[idx].nhomId = nhomId;
@@ -3644,14 +3690,30 @@ function sheetPost(key, data) {
 }
 
 /** Tải toàn bộ dữ liệu từ Sheets về, ghi đè local */
+/** Bật spinner + progress bar khi đang đồng bộ */
+function showSyncLoading() {
+  const syncBtn  = document.getElementById('btn-sync-pull');
+  const syncText = document.getElementById('sync-pull-text');
+  const bar      = document.getElementById('sync-progress-bar');
+  if (syncBtn)  { syncBtn.disabled = true; syncBtn.style.opacity = '0.85'; }
+  if (syncText) syncText.innerHTML = '<span class="sync-spinner"></span> Đang tải...';
+  if (bar)      bar.classList.add('active');
+}
+
+/** Tắt spinner + progress bar sau khi đồng bộ xong */
+function hideSyncLoading() {
+  const syncBtn  = document.getElementById('btn-sync-pull');
+  const syncText = document.getElementById('sync-pull-text');
+  const bar      = document.getElementById('sync-progress-bar');
+  if (syncBtn)  { syncBtn.disabled = false; syncBtn.style.opacity = ''; }
+  if (syncText) syncText.innerHTML = '🔄 Đồng bộ';
+  if (bar)      bar.classList.remove('active');
+}
+
 async function pullFromSheets() {
   if (!_sheetUrl) { syncLog('⚠️ Chưa có URL. Vui lòng lưu URL trước.', 'error'); return; }
 
-  // Loading state cho nút Đồng bộ
-  const syncBtn  = document.getElementById('btn-sync-pull');
-  const syncText = document.getElementById('sync-pull-text');
-  if (syncBtn)  { syncBtn.disabled = true; syncBtn.style.opacity = '0.7'; }
-  if (syncText) syncText.textContent = '⏳ Đang tải...';
+  showSyncLoading();
 
   // Cảnh báo nếu có thay đổi cục bộ chưa gửi
   if (_hasLocalChanges) {
@@ -3697,8 +3759,7 @@ async function pullFromSheets() {
   } catch(e) {
     syncLog('❌ ' + e.message, 'error');
   } finally {
-    if (syncBtn)  { syncBtn.disabled = false; syncBtn.style.opacity = ''; }
-    if (syncText) syncText.textContent = '🔄 Đồng bộ';
+    hideSyncLoading();
   }
 }
 
@@ -5041,17 +5102,27 @@ async function approvePending(id) {
   const merged = [...otherEmps, ...submittedEmps];
 
   try {
-    // Cập nhật local
+    // Cập nhật local — nhân viên
     daNhanVien = merged;
     saveData('nhanvien', daNhanVien);
-    // Đẩy lên sheet chính
+    // Đẩy lên sheet chính — nhân viên
     await sheetPost('nhanvien', merged);
+
+    // Merge nhóm nội bộ của đơn vị (nếu có trong payload)
+    if (Array.isArray(p.nhom) && p.nhom.length > 0) {
+      const otherGroups = daGroups.filter(g => g.donVi !== donVi);
+      daGroups = [...otherGroups, ...p.nhom];
+      saveData('nhom-nv', daGroups);
+      await sheetPost('nhom-nv', daGroups);
+    }
+
     // Cập nhật trạng thái pending
     p.status = 'approved';
     await sheetPost('pending', _pendingList);
     renderPendingList();
     renderDashboard();
-    showToast(`✅ Đã duyệt! Gộp ${p.nhanvien.length} nhân viên từ "${p.donVi}".`);
+    const nhomNote = (Array.isArray(p.nhom) && p.nhom.length > 0) ? ` + ${p.nhom.length} nhóm` : '';
+    showToast(`✅ Đã duyệt! Gộp ${p.nhanvien.length} nhân viên${nhomNote} từ "${p.donVi}".`);
   } catch(e) {
     showToast('❌ Lỗi khi duyệt: ' + e.message);
   }
@@ -5558,6 +5629,7 @@ async function confirmSubmitPending() {
   const btn = document.getElementById('btn-confirm-submit');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
   try {
+    const unitGroups = daGroups.filter(g => g.donVi === donVi);
     arr.push({
       id: Date.now().toString(),
       donVi,
@@ -5565,6 +5637,7 @@ async function confirmSubmitPending() {
       timestamp: new Date().toISOString(),
       status: 'pending',
       nhanvien: unitEmployees,
+      nhom: unitGroups,           // ← gửi kèm nhóm để admin merge khi duyệt
       serverSnapshot: serverUnitEmps,
     });
     await sheetPost('pending', arr);
@@ -5597,11 +5670,7 @@ initAuth();
 // Chỉ chạy nếu đã cấu hình URL và không có thay đổi cục bộ chưa đẩy lên
 (async function autoPullOnLoad() {
   if (!_sheetUrl || _hasLocalChanges) return;
-  // Hiển thị loading state trên nút Đồng bộ
-  const syncBtn  = document.getElementById('btn-sync-pull');
-  const syncText = document.getElementById('sync-pull-text');
-  if (syncBtn)  { syncBtn.disabled = true; syncBtn.style.opacity = '0.7'; }
-  if (syncText) syncText.textContent = '⏳ Đang tải...';
+  showSyncLoading();
   try {
     const [nv, dm, dinh, tk, tkls, grp] = await Promise.all([
       sheetGet('nhanvien'), sheetGet('danhmuc'), sheetGet('dinhmuc'),
@@ -5633,8 +5702,7 @@ initAuth();
     // Không báo lỗi nếu auto-pull thất bại — người dùng có thể pull thủ công
     console.warn('Auto-pull failed:', e.message);
   } finally {
-    if (syncBtn)  { syncBtn.disabled = false; syncBtn.style.opacity = ''; }
-    if (syncText) syncText.textContent = '🔄 Đồng bộ';
+    hideSyncLoading();
   }
 })();
 </script>
