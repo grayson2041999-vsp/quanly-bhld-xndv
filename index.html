@@ -141,6 +141,31 @@
     }
     .unit-group-header td { background: var(--primary) !important; color: #fff !important; font-weight: 700; font-size: 13.5px; padding: 9px 16px !important; letter-spacing: 0.2px; }
 
+    /* ===== UNIT PICKER ===== */
+    .nv-unit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      max-width: 960px;
+      margin: 0 auto 28px;
+    }
+    .nv-unit-card {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; background: white; border: 2px solid var(--border);
+      border-radius: 16px; padding: 30px 16px; cursor: pointer;
+      transition: all 0.22s; text-align: center; min-height: 152px;
+      font-family: inherit;
+    }
+    .nv-unit-card:hover {
+      border-color: var(--primary); background: #f0f7ff;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(26,73,140,0.13);
+    }
+    .nv-unit-card:active { transform: translateY(-1px); }
+    .nv-unit-icon  { font-size: 38px; line-height: 1; }
+    .nv-unit-name  { font-size: 14px; font-weight: 700; color: var(--primary); line-height: 1.35; }
+    .nv-unit-count { font-size: 12px; color: var(--text-light); background: #edf1f8; border-radius: 20px; padding: 3px 12px; }
+
     /* ===== FORM ===== */
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .form-group { display: flex; flex-direction: column; gap: 5px; }
@@ -483,62 +508,83 @@
   <div id="page-nhan-vien" class="page">
     <div class="page-title">👷 Quản lý Nhân viên</div>
 
-    <div style="display:flex;align-items:center;gap:10px;background:#EDF1F8;border-left:4px solid var(--primary);border-radius:6px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:var(--text-light);">
-      💡 <span>Hãy <strong style="color:var(--primary);">tải toàn bộ dữ liệu về</strong> trước khi chỉnh sửa để có thông tin cập nhật gần nhất — nhấn <strong style="color:var(--primary);">☁️ Đồng bộ → Tải về</strong> trên thanh tiêu đề.</span>
-    </div>
-
-    <!-- PANEL QUẢN LÝ NHÓM — chỉ hiện khi lọc theo 1 đơn vị -->
-    <div id="nhom-panel" style="display:none;margin-bottom:16px;">
-      <div class="card" style="padding:16px 20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-          <div style="font-size:14px;font-weight:700;color:var(--primary);">📁 Nhóm nội bộ</div>
-          <button id="btn-tao-nhom" class="btn btn-primary btn-sm" onclick="openModalNhom(null)" style="display:none;">➕ Tạo nhóm</button>
-        </div>
-        <div id="nhom-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-          <!-- Được render bởi renderNhomPanel() -->
-        </div>
-        <div id="nhom-empty" style="display:none;font-size:13px;color:var(--text-light);font-style:italic;">Chưa có nhóm nào. <span id="nhom-empty-hint"></span></div>
+    <!-- ══ VIEW A: CHỌN ĐƠN VỊ (landing) ══ -->
+    <div id="nv-unit-picker">
+      <p style="text-align:center;color:var(--text-light);font-size:14px;margin-bottom:24px;">
+        Chọn đơn vị để xem danh sách nhân viên
+      </p>
+      <div id="nv-unit-cards" class="nv-unit-grid">
+        <!-- Được render bởi renderUnitPicker() -->
       </div>
     </div>
 
-    <div class="card">
-      <div class="btn-group" style="flex-wrap:wrap;gap:8px;">
-        <button class="btn btn-primary" onclick="openModalNV()">➕ Thêm nhân viên</button>
+    <!-- ══ VIEW B: DANH SÁCH NHÂN VIÊN ĐƠN VỊ ══ -->
+    <div id="nv-unit-detail" style="display:none;">
+
+      <!-- Nút Quay lại + Tiêu đề đơn vị -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="showUnitPicker()" style="padding:7px 16px;font-size:13px;gap:6px;">
+          ← Quay lại
+        </button>
+        <h2 id="nv-detail-title" style="margin:0;font-size:18px;font-weight:700;color:var(--primary);"></h2>
       </div>
-      <div class="search-bar">
-        <input class="search-input" id="search-nv" type="text" placeholder="Tìm theo danh số, họ và tên, chức danh..." oninput="renderTableNV()">
-        <select id="filter-bp" onchange="onFilterBPChange()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13.5px;">
-          <option value="">-- Tất cả đơn vị --</option>
-          <option value="Cảng biển">Cảng biển</option>
-          <option value="Căn cứ Kho - Giao nhận">Căn cứ Kho - Giao nhận</option>
-          <option value="Xưởng sửa chữa">Xưởng sửa chữa</option>
-          <option value="Đội xe VTHH&PTTBCD">Đội xe VTHH&PTTBCD</option>
-          <option value="Đội xe VCHK">Đội xe VCHK</option>
-        </select>
+
+      <div style="display:flex;align-items:center;gap:10px;background:#EDF1F8;border-left:4px solid var(--primary);border-radius:6px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:var(--text-light);">
+        💡 <span>Hãy <strong style="color:var(--primary);">tải toàn bộ dữ liệu về</strong> trước khi chỉnh sửa để có thông tin cập nhật gần nhất — nhấn <strong style="color:var(--primary);">🔄 Đồng bộ</strong> trên thanh tiêu đề.</span>
       </div>
-      <div class="table-wrap">
-        <table id="table-nv">
-          <thead>
-            <tr id="thead-nv-row">
-              <th rowspan="2" style="width:40px;text-align:center;">STT</th>
-              <th rowspan="2">Danh số</th>
-              <th rowspan="2">Họ và Tên</th>
-              <th rowspan="2">Chức danh</th>
-              <th rowspan="2" id="th-donvi-or-nhom">Đơn vị</th>
-              <th colspan="4" style="text-align:center;background:#d0e4f7;color:var(--primary);font-size:11px;padding:5px 8px;letter-spacing:0.3px;">📅 LẦN CẤP GẦN NHẤT</th>
-              <th rowspan="2" style="text-align:center;">Thao tác</th>
-            </tr>
-            <tr>
-              <th style="text-align:center;min-width:80px;">🧥 Quần áo</th>
-              <th style="text-align:center;min-width:80px;">👟 Giày</th>
-              <th style="text-align:center;min-width:80px;">⛑️ Nón</th>
-              <th style="text-align:center;min-width:80px;">🥽 Kính</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-nv"></tbody>
-        </table>
+
+      <!-- PANEL QUẢN LÝ NHÓM — chỉ hiện khi lọc theo 1 đơn vị -->
+      <div id="nhom-panel" style="display:none;margin-bottom:16px;">
+        <div class="card" style="padding:16px 20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div style="font-size:14px;font-weight:700;color:var(--primary);">📁 Nhóm nội bộ</div>
+            <button id="btn-tao-nhom" class="btn btn-primary btn-sm" onclick="openModalNhom(null)" style="display:none;">➕ Tạo nhóm</button>
+          </div>
+          <div id="nhom-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          <div id="nhom-empty" style="display:none;font-size:13px;color:var(--text-light);font-style:italic;">Chưa có nhóm nào. <span id="nhom-empty-hint"></span></div>
+        </div>
       </div>
-    </div>
+
+      <div class="card">
+        <div class="btn-group" style="flex-wrap:wrap;gap:8px;">
+          <button class="btn btn-primary" onclick="openModalNV()">➕ Thêm nhân viên</button>
+        </div>
+        <div class="search-bar">
+          <input class="search-input" id="search-nv" type="text" placeholder="Tìm theo danh số, họ và tên, chức danh..." oninput="renderTableNV()">
+          <!-- filter-bp ẩn nhưng vẫn hoạt động — điều khiển qua selectUnit() -->
+          <select id="filter-bp" onchange="onFilterBPChange()" style="display:none;">
+            <option value="">-- Tất cả đơn vị --</option>
+            <option value="Cảng biển">Cảng biển</option>
+            <option value="Căn cứ Kho - Giao nhận">Căn cứ Kho - Giao nhận</option>
+            <option value="Xưởng sửa chữa">Xưởng sửa chữa</option>
+            <option value="Đội xe VTHH&PTTBCD">Đội xe VTHH&PTTBCD</option>
+            <option value="Đội xe VCHK">Đội xe VCHK</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="table-nv">
+            <thead>
+              <tr id="thead-nv-row">
+                <th rowspan="2" style="width:40px;text-align:center;">STT</th>
+                <th rowspan="2">Danh số</th>
+                <th rowspan="2">Họ và Tên</th>
+                <th rowspan="2">Chức danh</th>
+                <th rowspan="2" id="th-donvi-or-nhom">Nhóm</th>
+                <th colspan="4" style="text-align:center;background:#d0e4f7;color:var(--primary);font-size:11px;padding:5px 8px;letter-spacing:0.3px;">📅 LẦN CẤP GẦN NHẤT</th>
+                <th rowspan="2" style="text-align:center;">Thao tác</th>
+              </tr>
+              <tr>
+                <th style="text-align:center;min-width:80px;">🧥 Quần áo</th>
+                <th style="text-align:center;min-width:80px;">👟 Giày</th>
+                <th style="text-align:center;min-width:80px;">⛑️ Nón</th>
+                <th style="text-align:center;min-width:80px;">🥽 Kính</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-nv"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /nv-unit-detail -->
   </div>
 
   <!-- ============================
@@ -1782,7 +1828,20 @@ function showPage(page) {
     if (item.getAttribute('onclick')?.includes(page)) item.classList.add('active');
   });
   if (page === 'dashboard') renderDashboard();
-  if (page === 'nhan-vien') renderTableNV();
+  if (page === 'nhan-vien') {
+    // Nếu là tài khoản đơn vị → vào thẳng đơn vị của họ
+    if (_currentUnitUser) {
+      selectUnit(_currentUnitUser.donVi);
+    } else {
+      // Hiện picker, ẩn detail
+      const picker = document.getElementById('nv-unit-picker');
+      const detail = document.getElementById('nv-unit-detail');
+      if (picker) picker.style.display = 'block';
+      if (detail) detail.style.display = 'none';
+      renderUnitPicker();
+    }
+    renderTableNV();
+  }
   if (page === 'danh-muc') renderTableDM();
   if (page === 'dinh-muc') renderTableDinhMuc();
   if (page === 'bao-cao') renderBaoCao();
@@ -1922,7 +1981,7 @@ function renderDashboard() {
     if (orphans.length > 0) {
       warnEl.style.display = 'flex';
       warnEl.innerHTML = `⚠️ <span>Có <strong>${orphans.length} nhân viên chưa được gán đơn vị</strong> — họ sẽ bị bỏ sót khi các đơn vị gửi dữ liệu!
-        <a href="#" onclick="showPage('nhan-vien');document.getElementById('filter-bp').value='';renderTableNV();return false;" style="color:var(--primary);font-weight:600;margin-left:8px;">Xem ngay →</a></span>`;
+        <a href="#" onclick="showPage('nhan-vien');showUnitPicker();return false;" style="color:var(--primary);font-weight:600;margin-left:8px;">Xem ngay →</a></span>`;
     } else {
       warnEl.style.display = 'none';
     }
@@ -1990,6 +2049,57 @@ function renderDashboard() {
 // =====================================================
 const UNIT_ORDER = ['Cảng biển','Căn cứ Kho - Giao nhận','Xưởng sửa chữa','Đội xe VTHH&PTTBCD','Đội xe VCHK'];
 const ROMAN_NUM  = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+
+// Icon cho từng đơn vị
+const UNIT_ICONS = {
+  'Cảng biển':               '🚢',
+  'Căn cứ Kho - Giao nhận': '📦',
+  'Xưởng sửa chữa':         '🔧',
+  'Đội xe VTHH&PTTBCD':     '🚛',
+  'Đội xe VCHK':             '🚗',
+};
+
+/** Render 5 nút chọn đơn vị ở trang landing nhân viên */
+function renderUnitPicker() {
+  const container = document.getElementById('nv-unit-cards');
+  if (!container) return;
+  container.innerHTML = UNIT_ORDER.map(u => {
+    const count = daNhanVien.filter(n => n.boPhan === u).length;
+    const icon  = UNIT_ICONS[u] || '🏢';
+    const safeU = u.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<button class="nv-unit-card" onclick="selectUnit('${safeU}')">
+      <span class="nv-unit-icon">${icon}</span>
+      <span class="nv-unit-name">${u}</span>
+      <span class="nv-unit-count">${count} nhân viên</span>
+    </button>`;
+  }).join('');
+}
+
+/** Chọn đơn vị → chuyển sang view detail */
+function selectUnit(donVi) {
+  const picker = document.getElementById('nv-unit-picker');
+  const detail = document.getElementById('nv-unit-detail');
+  const title  = document.getElementById('nv-detail-title');
+  if (picker) picker.style.display = 'none';
+  if (detail) detail.style.display = 'block';
+  if (title)  title.textContent = donVi;
+  const filterBP = document.getElementById('filter-bp');
+  if (filterBP) filterBP.value = donVi;
+  onFilterBPChange();
+}
+
+/** Quay về trang chọn đơn vị */
+function showUnitPicker() {
+  const picker = document.getElementById('nv-unit-picker');
+  const detail = document.getElementById('nv-unit-detail');
+  if (picker) picker.style.display = 'block';
+  if (detail) detail.style.display = 'none';
+  const searchEl = document.getElementById('search-nv');
+  if (searchEl) searchEl.value = '';
+  const filterBP = document.getElementById('filter-bp');
+  if (filterBP)  filterBP.value = '';
+  renderUnitPicker(); // làm mới số đếm
+}
 
 function _fThang(yyyymm) {
   if (!yyyymm) return '<span style="color:#bbb;font-size:12px;">—</span>';
@@ -3950,8 +4060,12 @@ async function unitLogin() {
     updateHeaderUser();
     showToast(`✅ Đăng nhập thành công! ${found.donVi}`);
     // Auto-filter về đơn vị của tài khoản đang đăng nhập
-    const bpEl = document.getElementById('filter-bp');
-    if (bpEl) { bpEl.value = found.donVi; onFilterBPChange(); }
+    const onNVPage = document.getElementById('page-nhan-vien')?.classList.contains('active');
+    if (onNVPage) selectUnit(found.donVi);
+    else {
+      const bpEl = document.getElementById('filter-bp');
+      if (bpEl) bpEl.value = found.donVi;
+    }
   } catch(e) {
     errEl.textContent = '❌ Lỗi kết nối. Kiểm tra URL hoặc thử lại.';
     errEl.style.display = 'block';
