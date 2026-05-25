@@ -1218,6 +1218,7 @@
         <label>Cỡ quần áo</label>
         <select id="nv-co-quanao">
           <option value="">-- Chọn cỡ --</option>
+          <option value="46">Cỡ 46</option>
           <option value="48">Cỡ 48</option>
           <option value="50">Cỡ 50</option>
           <option value="52">Cỡ 52</option>
@@ -1652,6 +1653,7 @@ let phieuRequests = loadData('phieu-requests', []); // mảng phiếu yêu cầu
 // IDs 15+ : các cỡ bổ sung trong cùng nhóm
 const DEFAULT_DANH_MUC = [
   // ── Nhóm: Bộ áo liền quần ──────────────────────────────
+  { id:47, ma:'',              ten:'Bộ áo liền quần cỡ 46', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ áo liền quần',        han:12 },
   { id:1,  ma:'025.041.00008', ten:'Bộ áo liền quần cỡ 48', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ áo liền quần',        han:12 },
   { id:15, ma:'025.041.00009', ten:'Bộ áo liền quần cỡ 50', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ áo liền quần',        han:12 },
   { id:16, ma:'025.041.00033', ten:'Bộ áo liền quần cỡ 52', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ áo liền quần',        han:12 },
@@ -1664,6 +1666,7 @@ const DEFAULT_DANH_MUC = [
   { id:21, ma:'',              ten:'Bộ quần áo thợ hàn cỡ 54', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo thợ hàn', han:6  },
   { id:22, ma:'',              ten:'Bộ quần áo thợ hàn cỡ 56', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo thợ hàn', han:6  },
   // ── Nhóm: Bộ quần áo rời ──────────────────────────────
+  { id:48, ma:'',              ten:'Bộ quần áo rời cỡ 46', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
   { id:3,  ma:'025.008.00043', ten:'Bộ quần áo rời cỡ 48', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
   { id:23, ma:'025.008.00044', ten:'Bộ quần áo rời cỡ 50', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
   { id:24, ma:'025.008.00045', ten:'Bộ quần áo rời cỡ 52', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
@@ -1852,14 +1855,19 @@ if (!_storedDinhMuc || _storedDinhMuc.length < 10) {
 }
 
 let daDanhMuc = loadData('danhmuc', DEFAULT_DANH_MUC);
-// Migration: bổ sung Bộ quần áo nữ cỡ 46 nếu chưa có
-if (!daDanhMuc.find(d => d.ten === 'Bộ quần áo nữ cỡ 46')) {
-  const idx48 = daDanhMuc.findIndex(d => d.ten === 'Bộ quần áo nữ cỡ 48');
-  const newEntry = { id:46, ma:'', ten:'Bộ quần áo nữ cỡ 46', loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo nữ', han:12 };
-  if (idx48 >= 0) daDanhMuc.splice(idx48, 0, newEntry);
-  else daDanhMuc.push(newEntry);
-  saveData('danhmuc', daDanhMuc);
-}
+// Migration: bổ sung các cỡ 46 còn thiếu
+[
+  { id:46, ma:'', ten:'Bộ quần áo nữ cỡ 46',   loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo nữ',    han:12, before:'Bộ quần áo nữ cỡ 48' },
+  { id:47, ma:'', ten:'Bộ áo liền quần cỡ 46',  loai:'Quần áo', donVi:'bộ', nhom:'Bộ áo liền quần',  han:12, before:'Bộ áo liền quần cỡ 48' },
+  { id:48, ma:'', ten:'Bộ quần áo rời cỡ 46',   loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo rời',   han:6,  before:'Bộ quần áo rời cỡ 48' },
+].forEach(({ before, ...entry }) => {
+  if (!daDanhMuc.find(d => d.ten === entry.ten)) {
+    const idx = daDanhMuc.findIndex(d => d.ten === before);
+    if (idx >= 0) daDanhMuc.splice(idx, 0, entry);
+    else daDanhMuc.push(entry);
+  }
+});
+saveData('danhmuc', daDanhMuc);
 let daDinhMuc = loadData('dinhmuc', DEFAULT_DINH_MUC);
 let daChucDanhOrder = loadData('chucdarnh-order', []); // mảng string — thứ tự chức danh trong trang Định mức
 let daTonKho     = loadData('tonkho',        {});  // {tbId: currentQty}
@@ -2123,21 +2131,28 @@ function renderDashboard() {
       </tr>`).join('');
     }).join('');
 
+    const manageBtn = _adminLoggedIn
+      ? `<button class="btn btn-outline btn-sm" onclick="showPage('quan-tri');adminSwitchTab('accounts');loadAccountsList();" style="font-size:12px;padding:5px 12px;">⚙️ Quản lý tài khoản →</button>`
+      : '';
+
     phuTrachEl.innerHTML = `
       <div class="card" style="margin-top:0;">
-        <div class="card-title" style="margin-bottom:14px;">👥 Nhân sự phụ trách</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+          <div class="card-title" style="margin:0;">👥 Tài khoản đơn vị</div>
+          ${manageBtn}
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr>
               <th style="min-width:160px;">Đơn vị</th>
               <th>Họ và tên</th>
               <th style="width:110px;">Danh số</th>
-              <th>Email / Chức vụ</th>
+              <th>Email</th>
             </tr></thead>
             <tbody>${adminRow}${unitRows || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-light);">Chưa có dữ liệu phụ trách</td></tr>'}</tbody>
           </table>
         </div>
-        ${!adminProfile.hoTen && !cachedApprovedAccounts.length ? '<p style="font-size:12px;color:var(--text-light);margin-top:10px;">💡 Khai báo thông tin quản trị viên tại <strong>Quản trị → Cài đặt</strong>. Thông tin phụ trách đơn vị lấy từ tài khoản được duyệt trong <strong>Quản lý tài khoản</strong>.</p>' : ''}
+        ${!adminProfile.hoTen && !cachedApprovedAccounts.length ? '<p style="font-size:12px;color:var(--text-light);margin-top:10px;">💡 Khai báo thông tin quản trị viên tại <strong>Quản trị → Cài đặt</strong>. Tài khoản đơn vị được quản lý tại <strong>Quản trị → Quản lý tài khoản</strong>.</p>' : ''}
       </div>`;
   }
 }
