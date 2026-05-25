@@ -1670,6 +1670,7 @@ const DEFAULT_DANH_MUC = [
   { id:25, ma:'025.008.00046', ten:'Bộ quần áo rời cỡ 54', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
   { id:26, ma:'025.008.00047', ten:'Bộ quần áo rời cỡ 56', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo rời',         han:6  },
   // ── Nhóm: Bộ quần áo nữ (trang bị riêng cho NV nữ) ────
+  { id:46, ma:'',              ten:'Bộ quần áo nữ cỡ 46', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo nữ',           han:12 },
   { id:27, ma:'025.008.00196', ten:'Bộ quần áo nữ cỡ 48', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo nữ',           han:12 },
   { id:28, ma:'025.008.00197', ten:'Bộ quần áo nữ cỡ 50', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo nữ',           han:12 },
   { id:29, ma:'025.008.00087', ten:'Bộ quần áo nữ cỡ 52', loai:'Quần áo', donVi:'bộ',  nhom:'Bộ quần áo nữ',           han:12 },
@@ -1851,6 +1852,14 @@ if (!_storedDinhMuc || _storedDinhMuc.length < 10) {
 }
 
 let daDanhMuc = loadData('danhmuc', DEFAULT_DANH_MUC);
+// Migration: bổ sung Bộ quần áo nữ cỡ 46 nếu chưa có
+if (!daDanhMuc.find(d => d.ten === 'Bộ quần áo nữ cỡ 46')) {
+  const idx48 = daDanhMuc.findIndex(d => d.ten === 'Bộ quần áo nữ cỡ 48');
+  const newEntry = { id:46, ma:'', ten:'Bộ quần áo nữ cỡ 46', loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo nữ', han:12 };
+  if (idx48 >= 0) daDanhMuc.splice(idx48, 0, newEntry);
+  else daDanhMuc.push(newEntry);
+  saveData('danhmuc', daDanhMuc);
+}
 let daDinhMuc = loadData('dinhmuc', DEFAULT_DINH_MUC);
 let daChucDanhOrder = loadData('chucdarnh-order', []); // mảng string — thứ tự chức danh trong trang Định mức
 let daTonKho     = loadData('tonkho',        {});  // {tbId: currentQty}
