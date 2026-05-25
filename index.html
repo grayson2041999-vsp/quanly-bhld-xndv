@@ -500,6 +500,11 @@
 
     <!-- Nhân sự phụ trách -->
     <div id="dashboard-phu-trach"></div>
+
+    <!-- Phiên bản -->
+    <div style="margin-top:32px;text-align:center;font-size:11.5px;color:var(--text-light);letter-spacing:.03em;">
+      Phiên bản 2026.05.25-1
+    </div>
   </div>
 
   <!-- ============================
@@ -1175,7 +1180,7 @@
       </div>
       <div class="form-group">
         <label>Chức danh *</label>
-        <select id="nv-chucdanh">
+        <select id="nv-chucdanh" onchange="toggleQAHan()">
           <option value="">-- Chọn chức danh --</option>
           <option value="Lãnh đạo đơn vị">Lãnh đạo đơn vị</option>
           <option value="Chuyên viên / Kỹ sư">Chuyên viên / Kỹ sư</option>
@@ -1310,7 +1315,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Lần nhận kính gần nhất</label>
+              <label>Tháng cấp kính gần nhất</label>
               <div style="display:flex;gap:6px;align-items:center;">
                 <select id="nv-thang-kinh-m" style="flex:1;">
                   <option value="">-- Tháng --</option>
@@ -1323,6 +1328,38 @@
                 </select>
                 <span style="color:var(--text-light);">/</span>
                 <input id="nv-thang-kinh-y" type="number" min="2000" max="2099" placeholder="Năm" style="width:72px;">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Tháng cấp áo mưa gần nhất</label>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <select id="nv-thang-ao-mua-m" style="flex:1;">
+                  <option value="">-- Tháng --</option>
+                  <option value="01">Tháng 1</option><option value="02">Tháng 2</option>
+                  <option value="03">Tháng 3</option><option value="04">Tháng 4</option>
+                  <option value="05">Tháng 5</option><option value="06">Tháng 6</option>
+                  <option value="07">Tháng 7</option><option value="08">Tháng 8</option>
+                  <option value="09">Tháng 9</option><option value="10">Tháng 10</option>
+                  <option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                </select>
+                <span style="color:var(--text-light);">/</span>
+                <input id="nv-thang-ao-mua-y" type="number" min="2000" max="2099" placeholder="Năm" style="width:72px;">
+              </div>
+            </div>
+            <div class="form-group" id="nv-qa-han-wrap" style="display:none;">
+              <label>Tháng cấp bộ đồ thợ hàn gần nhất</label>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <select id="nv-thang-qa-han-m" style="flex:1;">
+                  <option value="">-- Tháng --</option>
+                  <option value="01">Tháng 1</option><option value="02">Tháng 2</option>
+                  <option value="03">Tháng 3</option><option value="04">Tháng 4</option>
+                  <option value="05">Tháng 5</option><option value="06">Tháng 6</option>
+                  <option value="07">Tháng 7</option><option value="08">Tháng 8</option>
+                  <option value="09">Tháng 9</option><option value="10">Tháng 10</option>
+                  <option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                </select>
+                <span style="color:var(--text-light);">/</span>
+                <input id="nv-thang-qa-han-y" type="number" min="2000" max="2099" placeholder="Năm" style="width:72px;">
               </div>
             </div>
           </div>
@@ -1799,6 +1836,7 @@ let daGroups   = loadData('nhom-nv', []);  // [{id, ten, donVi}] — nhóm nội
 // Migration: thêm các trường còn thiếu cho nhân viên cũ
 daNhanVien = daNhanVien.map(n => ({
   loaiNV: 'cu', thangCapQuanAo: '', thangCapGiay: '', thangCapNon: '', thangCapKinh: '',
+  thangCapAoMua: '', thangCapQAHan: '',
   nhomId: null,   // nhóm nội bộ trong đơn vị (null = chưa xếp nhóm)
   ...n
 }));
@@ -2364,12 +2402,15 @@ function openModalNV() {
   clearMonthYear('nv-thang-quanao');
   clearMonthYear('nv-thang-giay');
   clearMonthYear('nv-thang-non');
+  clearMonthYear('nv-thang-ao-mua');
+  clearMonthYear('nv-thang-qa-han');
   document.getElementById('nv-nu').checked = false;
   document.getElementById('nv-loai-moi').checked = true;
   document.getElementById('nv-cu-section').style.display = 'none';
   document.getElementById('nv-moi-note').style.display = 'block';
   document.getElementById('nv-moi-thang-m').value = '';
   document.getElementById('nv-moi-thang-y').value = '';
+  toggleQAHan();
   // Khoá đơn vị nếu đang đăng nhập tài khoản đơn vị
   const bpEl = document.getElementById('nv-bophan');
   if (_currentUnitUser) {
@@ -2410,10 +2451,13 @@ function editNV(id) {
     document.getElementById('nv-moi-thang-m').value = '';
     document.getElementById('nv-moi-thang-y').value = '';
   }
-  setMonthYear('nv-thang-quanao', n.thangCapQuanAo || '');
-  setMonthYear('nv-thang-giay',   n.thangCapGiay   || '');
-  setMonthYear('nv-thang-non',    n.thangCapNon    || '');
-  setMonthYear('nv-thang-kinh',   n.thangCapKinh   || '');
+  setMonthYear('nv-thang-quanao',  n.thangCapQuanAo || '');
+  setMonthYear('nv-thang-giay',    n.thangCapGiay   || '');
+  setMonthYear('nv-thang-non',     n.thangCapNon    || '');
+  setMonthYear('nv-thang-kinh',    n.thangCapKinh   || '');
+  setMonthYear('nv-thang-ao-mua',  n.thangCapAoMua  || '');
+  setMonthYear('nv-thang-qa-han',  n.thangCapQAHan  || '');
+  toggleQAHan();
   openModal('modal-nv');
 }
 
@@ -2437,10 +2481,12 @@ function saveNV() {
     gioiTinh: document.getElementById('nv-nu').checked ? 'nu' : 'nam',
     ghiChu: document.getElementById('nv-ghichu').value.trim(),
     loaiNV,
-    thangCapQuanAo: loaiNV === 'cu' ? getMonthYear('nv-thang-quanao') : '',
-    thangCapGiay:   loaiNV === 'cu' ? getMonthYear('nv-thang-giay')   : '',
-    thangCapNon:    loaiNV === 'cu' ? getMonthYear('nv-thang-non')    : '',
-    thangCapKinh:   loaiNV === 'cu' ? getMonthYear('nv-thang-kinh')   : '',
+    thangCapQuanAo: loaiNV === 'cu' ? getMonthYear('nv-thang-quanao')  : '',
+    thangCapGiay:   loaiNV === 'cu' ? getMonthYear('nv-thang-giay')    : '',
+    thangCapNon:    loaiNV === 'cu' ? getMonthYear('nv-thang-non')     : '',
+    thangCapKinh:   loaiNV === 'cu' ? getMonthYear('nv-thang-kinh')    : '',
+    thangCapAoMua:  loaiNV === 'cu' ? getMonthYear('nv-thang-ao-mua')  : '',
+    thangCapQAHan:  loaiNV === 'cu' ? getMonthYear('nv-thang-qa-han')  : '',
   };
 
   // Tính ngayVaoLam cho NV mới từ ô tháng/năm cấp lần đầu
@@ -3685,6 +3731,17 @@ function toggleLoaiNV() {
   document.getElementById('nv-moi-note').style.display = isCu ? 'none' : 'block';
 }
 
+// Ẩn/hiện ô "Tháng cấp bộ đồ thợ hàn" dựa theo chức danh đang chọn
+function toggleQAHan() {
+  const cd = document.getElementById('nv-chucdanh')?.value || '';
+  const wrap = document.getElementById('nv-qa-han-wrap');
+  if (!wrap) return;
+  const isHan = cd === 'Thợ hàn';
+  wrap.style.display = isHan ? '' : 'none';
+  // Xóa giá trị nếu ẩn đi để tránh lưu nhầm
+  if (!isHan) clearMonthYear('nv-thang-qa-han');
+}
+
 // Đọc giá trị từ bộ chọn Tháng/Năm tiếng Việt → trả về 'YYYY-MM' hoặc ''
 function getMonthYear(prefix) {
   const m = document.getElementById(prefix + '-m')?.value;
@@ -3730,12 +3787,17 @@ function tinhThangCapTiepTheo(nv, dmEntry) {
   // Khẩu trang & găng tay → hàng quý
   if (tb.loai === 'Bảo vệ tay' || tb.loai === 'Bảo vệ hô hấp') return 'quarterly';
 
-  const isQuanAo = tb.loai === 'Quần áo';
+  // Phân loại quần áo theo nhóm để dùng đúng trường tracking
+  const isQuanAo = tb.loai === 'Quần áo'
+                   && tb.nhom !== 'Áo mưa'
+                   && tb.nhom !== 'Bộ quần áo thợ hàn'; // áo liền quần + quần áo rời + quần áo nữ
+  const isAoMua  = tb.nhom === 'Áo mưa';
+  const isQAHan  = tb.nhom === 'Bộ quần áo thợ hàn';
   const isGiay   = tb.loai === 'Giày dép';
   const isNon    = tb.loai === 'Mũ nón';
   const isKinh   = tb.loai === 'Bảo vệ mắt/mặt';
-  // Trang bị được cấp ngay lần đầu cho NV mới (×2)
-  const isInitialItem = isQuanAo || isGiay || isNon || isKinh;
+  // Trang bị được cấp ngay lần đầu cho NV mới (×2 chu kỳ trước lần cấp tiếp theo)
+  const isInitialItem = isQuanAo || isAoMua || isQAHan || isGiay || isNon || isKinh;
 
   let lastMonthStr = null;
   let multiplier = 1;
@@ -3746,11 +3808,13 @@ function tinhThangCapTiepTheo(nv, dmEntry) {
     lastMonthStr = startStr.slice(0, 7); // 'YYYY-MM'
     if (isInitialItem) multiplier = 2;
   } else {
-    // Nhân viên cũ: dùng tháng cấp gần nhất đã nhập
-    if (isQuanAo)    lastMonthStr = nv.thangCapQuanAo || null;
-    else if (isGiay) lastMonthStr = nv.thangCapGiay   || null;
-    else if (isNon)  lastMonthStr = nv.thangCapNon    || null;
-    else if (isKinh) lastMonthStr = nv.thangCapKinh   || null;
+    // Nhân viên cũ: dùng tháng cấp gần nhất tương ứng từng loại
+    if (isQuanAo)       lastMonthStr = nv.thangCapQuanAo || null;
+    else if (isAoMua)   lastMonthStr = nv.thangCapAoMua  || null;
+    else if (isQAHan)   lastMonthStr = nv.thangCapQAHan  || null;
+    else if (isGiay)    lastMonthStr = nv.thangCapGiay   || null;
+    else if (isNon)     lastMonthStr = nv.thangCapNon    || null;
+    else if (isKinh)    lastMonthStr = nv.thangCapKinh   || null;
     // Các loại khác không tracking → null
   }
 
