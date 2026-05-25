@@ -1855,19 +1855,25 @@ if (!_storedDinhMuc || _storedDinhMuc.length < 10) {
 }
 
 let daDanhMuc = loadData('danhmuc', DEFAULT_DANH_MUC);
-// Migration: bổ sung các cỡ 46 còn thiếu
-[
-  { id:46, ma:'', ten:'Bộ quần áo nữ cỡ 46',   loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo nữ',    han:12, before:'Bộ quần áo nữ cỡ 48' },
-  { id:47, ma:'', ten:'Bộ áo liền quần cỡ 46',  loai:'Quần áo', donVi:'bộ', nhom:'Bộ áo liền quần',  han:12, before:'Bộ áo liền quần cỡ 48' },
-  { id:48, ma:'', ten:'Bộ quần áo rời cỡ 46',   loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo rời',   han:6,  before:'Bộ quần áo rời cỡ 48' },
-].forEach(({ before, ...entry }) => {
-  if (!daDanhMuc.find(d => d.ten === entry.ten)) {
-    const idx = daDanhMuc.findIndex(d => d.ten === before);
-    if (idx >= 0) daDanhMuc.splice(idx, 0, entry);
-    else daDanhMuc.push(entry);
-  }
-});
-saveData('danhmuc', daDanhMuc);
+/** Đảm bảo các mục cỡ 46 luôn có trong daDanhMuc — gọi sau load và sau mỗi sync pull */
+function _migrateDanhMuc() {
+  const co46 = [
+    { id:47, ma:'', ten:'Bộ áo liền quần cỡ 46',  loai:'Quần áo', donVi:'bộ', nhom:'Bộ áo liền quần', han:12, before:'Bộ áo liền quần cỡ 48' },
+    { id:48, ma:'', ten:'Bộ quần áo rời cỡ 46',   loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo rời',  han:6,  before:'Bộ quần áo rời cỡ 48' },
+    { id:46, ma:'', ten:'Bộ quần áo nữ cỡ 46',    loai:'Quần áo', donVi:'bộ', nhom:'Bộ quần áo nữ',   han:12, before:'Bộ quần áo nữ cỡ 48' },
+  ];
+  let changed = false;
+  co46.forEach(({ before, ...entry }) => {
+    if (!daDanhMuc.find(d => d.ten === entry.ten)) {
+      const idx = daDanhMuc.findIndex(d => d.ten === before);
+      if (idx >= 0) daDanhMuc.splice(idx, 0, entry);
+      else daDanhMuc.push(entry);
+      changed = true;
+    }
+  });
+  if (changed) saveData('danhmuc', daDanhMuc);
+}
+_migrateDanhMuc();
 let daDinhMuc = loadData('dinhmuc', DEFAULT_DINH_MUC);
 let daChucDanhOrder = loadData('chucdarnh-order', []); // mảng string — thứ tự chức danh trong trang Định mức
 let daTonKho     = loadData('tonkho',        {});  // {tbId: currentQty}
@@ -4083,7 +4089,7 @@ async function pullFromSheets() {
       sheetGet('chucdarnh-order'),
     ]);
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); }
-    if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  }
+    if (dm.length)   { daDanhMuc  = dm;   _migrateDanhMuc(); }
     if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  }
     if (Array.isArray(cdOrder) && cdOrder.length) {
       daChucDanhOrder = cdOrder; saveData('chucdarnh-order', daChucDanhOrder);
@@ -6038,7 +6044,7 @@ initAuth();
     ]);
     let changed = false;
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); changed = true; }
-    if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  changed = true; }
+    if (dm.length)   { daDanhMuc  = dm;   _migrateDanhMuc();                     changed = true; }
     if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  changed = true; }
     if (Array.isArray(cdOrder) && cdOrder.length) {
       daChucDanhOrder = cdOrder; saveData('chucdarnh-order', daChucDanhOrder); changed = true;
