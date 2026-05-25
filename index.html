@@ -262,6 +262,8 @@
       .header-date { display: none; }
     }
   </style>
+  <!-- SheetJS – dùng cho xuất Excel nhân viên -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -551,8 +553,9 @@
       </div>
 
       <div class="card">
-        <div class="btn-group" style="flex-wrap:wrap;gap:8px;">
+        <div class="btn-group" style="flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;">
           <button class="btn btn-primary" onclick="openModalNV()">➕ Thêm nhân viên</button>
+          <button class="btn btn-outline" onclick="openExportNV()" style="margin-left:auto;gap:6px;">⬇️ Xuất thông tin</button>
         </div>
         <div class="search-bar">
           <input class="search-input" id="search-nv" type="text" placeholder="Tìm theo danh số, họ và tên, chức danh..." oninput="renderTableNV()">
@@ -1598,6 +1601,27 @@
       <button class="modal-close" onclick="closeModalKho()">×</button>
     </div>
     <div id="modal-kho-body" style="max-height:72vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ===== MODAL XUẤT THÔNG TIN NHÂN VIÊN ===== -->
+<div id="modal-export-nv" class="modal-overlay" style="display:none;">
+  <div class="modal" style="max-width:400px;width:92%;">
+    <div class="modal-header">
+      <span class="modal-title">⬇️ Xuất thông tin nhân viên</span>
+      <button class="modal-close" onclick="closeExportNV()">×</button>
+    </div>
+    <div style="padding:20px 24px 24px;">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:18px;">Chọn định dạng file muốn xuất. File sẽ bao gồm toàn bộ thông tin nhân viên và các ngày cấp gần nhất.</p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn-primary" onclick="exportNV_Excel()" style="font-size:14px;padding:13px 20px;justify-content:center;gap:10px;">
+          📊 Xuất Excel (.xlsx)
+        </button>
+        <button class="btn btn-outline" onclick="exportNV_PDF()" style="font-size:14px;padding:13px 20px;justify-content:center;gap:10px;">
+          📄 Xuất HTML (để lưu PDF)
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -6022,6 +6046,192 @@ initAuth();
     hideSyncLoading();
   }
 })();
+
+// ── XUẤT THÔNG TIN NHÂN VIÊN ───────────────────────────────────────────────
+
+function openExportNV() {
+  document.getElementById('modal-export-nv').style.display = 'flex';
+}
+function closeExportNV() {
+  document.getElementById('modal-export-nv').style.display = 'none';
+}
+
+/** Format tháng/năm dạng plain text (không có HTML) */
+function _fThangTxt(yyyymm) {
+  if (!yyyymm) return '';
+  const [y, m] = yyyymm.split('-');
+  return `T${parseInt(m)}/${y}`;
+}
+
+/** Esc HTML tối giản cho PDF print window */
+function _escH(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/** Lấy dữ liệu NV đang xem (đơn vị hiện tại + nhóm nội bộ) */
+function _getExportData() {
+  const bp = document.getElementById('filter-bp')?.value || '';
+  const nvList = bp ? daNhanVien.filter(n => n.boPhan === bp) : [...daNhanVien];
+  const groups = bp ? daGroups.filter(g => g.donVi === bp) : [];
+  return { bp, nvList, groups };
+}
+
+/** Chuyển 1 NV thành mảng ô cho Excel */
+function _nvToExcelRow(n, stt) {
+  const isHan = (n.chucDanh || '') === 'Thợ hàn';
+  return [
+    stt,
+    n.ma || '',
+    n.ten || '',
+    n.chucDanh || '',
+    n.coQuanAo || '',
+    n.coGiay || '',
+    _fThangTxt(n.thangCapQuanAo) || '-',
+    _fThangTxt(n.thangCapGiay)   || '-',
+    _fThangTxt(n.thangCapNon)    || '-',
+    _fThangTxt(n.thangCapKinh)   || '-',
+    _fThangTxt(n.thangCapAoMua)  || '-',
+    isHan ? (_fThangTxt(n.thangCapQAHan) || '-') : '-'
+  ];
+}
+
+/** Xuất Excel bằng SheetJS */
+function exportNV_Excel() {
+  if (typeof XLSX === 'undefined') {
+    showToast('⚠️ Thư viện Excel chưa tải xong, vui lòng thử lại sau vài giây.');
+    return;
+  }
+  const { bp, nvList, groups } = _getExportData();
+  const title = bp || 'Tất cả nhân viên';
+  const headers = [
+    'STT', 'Danh số', 'Họ và Tên', 'Chức danh',
+    'Cỡ QA', 'Cỡ Giày',
+    'T.cấp Quần áo', 'T.cấp Giày', 'T.cấp Nón', 'T.cấp Kính',
+    'T.cấp Áo mưa', 'Tháng cấp QA thợ hàn'
+  ];
+
+  const rows = [];
+  rows.push([`DANH SÁCH NHÂN VIÊN – ${title.toUpperCase()}`]);
+  rows.push([`Xuất ngày: ${new Date().toLocaleDateString('vi-VN')}`]);
+  rows.push([]);
+  rows.push(headers);
+
+  let stt = 1;
+  if (bp && groups.length > 0) {
+    groups.forEach(g => {
+      const members = nvList.filter(n => n.nhomId === g.id);
+      rows.push([`[Nhóm ${g.id}] ${g.ten} (${members.length} người)`]);
+      members.forEach(n => rows.push(_nvToExcelRow(n, stt++)));
+    });
+    const unassigned = nvList.filter(n => !n.nhomId || !daGroups.find(g => g.id === n.nhomId && g.donVi === bp));
+    if (unassigned.length > 0) {
+      rows.push([`[Chưa xếp nhóm] (${unassigned.length} người)`]);
+      unassigned.forEach(n => rows.push(_nvToExcelRow(n, stt++)));
+    }
+  } else {
+    nvList.forEach(n => rows.push(_nvToExcelRow(n, stt++)));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [
+    {wch:5},{wch:13},{wch:26},{wch:22},
+    {wch:8},{wch:8},
+    {wch:15},{wch:13},{wch:13},{wch:13},{wch:15},{wch:20}
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Nhân viên');
+  const safeName = title.replace(/[\/\\?*[\]:]/g, '_');
+  XLSX.writeFile(wb, `NhanVien_${safeName}.xlsx`);
+  closeExportNV();
+  showToast('✅ Đã xuất file Excel thành công!');
+}
+
+/** Xuất PDF — mở cửa sổ mới để lưu */
+function exportNV_PDF() {
+  const { bp, nvList, groups } = _getExportData();
+  const title = bp || 'Tất cả nhân viên';
+
+  let bodyHTML = '';
+  let stt = 1;
+
+  const nvRow = (n, s) => {
+    const isHan = (n.chucDanh || '') === 'Thợ hàn';
+    return `<tr>
+    <td style="text-align:center;">${s}</td>
+    <td>${_escH(n.ma)}</td>
+    <td><strong>${_escH(n.ten)}</strong></td>
+    <td>${_escH(n.chucDanh)}</td>
+    <td style="text-align:center;">${_escH(n.coQuanAo)}</td>
+    <td style="text-align:center;">${_escH(n.coGiay)}</td>
+    <td style="text-align:center;">${_fThangTxt(n.thangCapQuanAo)||'-'}</td>
+    <td style="text-align:center;">${_fThangTxt(n.thangCapGiay)||'-'}</td>
+    <td style="text-align:center;">${_fThangTxt(n.thangCapNon)||'-'}</td>
+    <td style="text-align:center;">${_fThangTxt(n.thangCapKinh)||'-'}</td>
+    <td style="text-align:center;">${_fThangTxt(n.thangCapAoMua)||'-'}</td>
+    <td style="text-align:center;">${isHan ? (_fThangTxt(n.thangCapQAHan)||'-') : '-'}</td>
+  </tr>`;
+  };
+
+  const groupHdr = (label, count, badge) => `<tr class="gh">
+    <td colspan="12">${badge ? `<span class="gb">${_escH(badge)}</span>` : '👤'} ${_escH(label)} <span class="gc">(${count} người)</span></td>
+  </tr>`;
+
+  if (bp && groups.length > 0) {
+    groups.forEach(g => {
+      const members = nvList.filter(n => n.nhomId === g.id);
+      bodyHTML += groupHdr(g.ten, members.length, g.id);
+      members.forEach(n => { bodyHTML += nvRow(n, stt++); });
+    });
+    const unassigned = nvList.filter(n => !n.nhomId || !daGroups.find(g => g.id === n.nhomId && g.donVi === bp));
+    if (unassigned.length > 0) {
+      bodyHTML += groupHdr('Chưa xếp nhóm', unassigned.length, '');
+      unassigned.forEach(n => { bodyHTML += nvRow(n, stt++); });
+    }
+  } else {
+    nvList.forEach(n => { bodyHTML += nvRow(n, stt++); });
+  }
+
+  const html = `<!DOCTYPE html><html lang="vi"><head>
+<meta charset="UTF-8">
+<title>Danh sách NV – ${_escH(title)}</title>
+<style>
+  @page { size: A4 landscape; margin: 15mm 10mm; }
+  body { font-family: Arial, sans-serif; font-size: 10.5px; color: #111; margin: 0; padding: 10px; }
+  h1 { font-size: 14px; color: #003087; text-align: center; margin-bottom: 3px; font-weight: 800; letter-spacing: .5px; }
+  .sub { font-size: 10px; color: #666; text-align: center; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #003087; color: #fff; padding: 5px 5px; text-align: center; font-size: 9.5px; white-space: nowrap; border: 1px solid #0048a8; }
+  td { padding: 3.5px 5px; border: 1px solid #d5dff0; vertical-align: middle; font-size: 10px; }
+  tr:nth-child(even) td { background: #f4f8ff; }
+  .gh td { background: #dce8f5 !important; font-weight: 700; color: #003087; font-size: 11px; padding: 5px 8px; border-top: 2px solid #003087; }
+  .gb { display: inline-block; background: #003087; color: #fff; border-radius: 50%; width: 16px; height: 16px; text-align: center; line-height: 16px; font-size: 9px; font-weight: 800; margin-right: 4px; }
+  .gc { font-weight: 400; font-size: 9.5px; color: #555; margin-left: 4px; }
+</style></head><body>
+<h1>DANH SÁCH NHÂN VIÊN – BẢO HỘ LAO ĐỘNG & PTBVCN</h1>
+<div class="sub">${_escH(title)} &nbsp;|&nbsp; Xuất ngày: ${new Date().toLocaleDateString('vi-VN')} &nbsp;|&nbsp; Tổng: ${nvList.length} người</div>
+<table>
+<thead><tr>
+  <th style="width:30px;">STT</th>
+  <th>Danh số</th><th>Họ và Tên</th><th>Chức danh</th>
+  <th>Cỡ QA</th><th>Cỡ Giày</th>
+  <th>T.cấp QA</th><th>T.cấp Giày</th><th>T.cấp Nón</th><th>T.cấp Kính</th>
+  <th>T.cấp Áo mưa</th><th>T.cấp QA thợ hàn</th>
+</tr></thead>
+<tbody>${bodyHTML}</tbody>
+</table>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NhanVien_${(title).replace(/[\/\\?*[\]:]/g,'_')}.html`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  closeExportNV();
+  showToast('✅ Đã xuất file HTML. Mở bằng trình duyệt rồi dùng Ctrl+P để lưu PDF.');
+}
 </script>
 </body>
 </html>
