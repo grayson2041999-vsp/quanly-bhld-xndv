@@ -1451,6 +1451,32 @@
   </div>
 </div>
 
+<!-- ===== MODAL: ĐỔI TÊN CHỨC DANH ===== -->
+<div id="modal-rename-cd" class="modal-overlay">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Đổi tên chức danh</span>
+      <button class="modal-close" onclick="closeModal('modal-rename-cd')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rename-cd-old">
+      <div class="form-group">
+        <label class="form-label">Tên chức danh hiện tại</label>
+        <div id="rename-cd-current" style="padding:8px 12px;background:#f5f7fa;border-radius:6px;font-size:13px;color:var(--text-light);"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tên chức danh mới <span style="color:var(--danger)">*</span></label>
+        <input class="form-input" id="rename-cd-new" type="text" placeholder="Nhập tên chức danh mới..."
+          onkeydown="if(event.key==='Enter') saveRenameChucDanh()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-rename-cd')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveRenameChucDanh()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: TẠO / ĐỔI TÊN NHÓM ===== -->
 <div id="modal-nhom" class="modal-overlay">
   <div class="modal" style="max-width:400px;">
@@ -1765,6 +1791,7 @@ if (!_storedDinhMuc || _storedDinhMuc.length < 10) {
 
 let daDanhMuc = loadData('danhmuc', DEFAULT_DANH_MUC);
 let daDinhMuc = loadData('dinhmuc', DEFAULT_DINH_MUC);
+let daChucDanhOrder = loadData('chucdarnh-order', []); // mảng string — thứ tự chức danh trong trang Định mức
 let daTonKho     = loadData('tonkho',        {});  // {tbId: currentQty}
 let daTonKhoLichSu = loadData('tonkho-lichsu', []); // mảng giao dịch nhập/xuất
 let daGroups   = loadData('nhom-nv', []);  // [{id, ten, donVi}] — nhóm nội bộ trong đơn vị
@@ -2733,7 +2760,17 @@ function setNhomNV(nvId, nhomIdStr) {
 // =====================================================
 //  ĐỊNH MỨC CẤP PHÁT
 // =====================================================
+// Đồng bộ thứ tự chức danh: giữ thứ tự đã lưu, append chức danh mới vào cuối
+function _syncChucDanhOrder() {
+  const allCDs = [...new Set(daDinhMuc.map(d => d.chucDanh))];
+  const kept  = daChucDanhOrder.filter(cd => allCDs.includes(cd));
+  const added = allCDs.filter(cd => !kept.includes(cd));
+  daChucDanhOrder = [...kept, ...added];
+  saveData('chucdarnh-order', daChucDanhOrder);
+}
+
 function renderTableDinhMuc() {
+  _syncChucDanhOrder();
   const q = (document.getElementById('search-dinhmuc')?.value || '').toLowerCase();
   const tbody = document.getElementById('tbody-dinhmuc');
   const btnAddDinhMuc = document.querySelector('#page-dinh-muc .btn-primary');
@@ -2746,8 +2783,8 @@ function renderTableDinhMuc() {
     grouped[d.chucDanh].push(d);
   });
 
-  // Lọc theo từ khóa tìm kiếm
-  const chucDanhs = Object.keys(grouped).filter(cd => !q || cd.toLowerCase().includes(q));
+  // Dùng daChucDanhOrder để giữ thứ tự, lọc theo từ khóa
+  const chucDanhs = daChucDanhOrder.filter(cd => grouped[cd] && (!q || cd.toLowerCase().includes(q)));
 
   if (chucDanhs.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-light);">${daDinhMuc.length === 0 ? 'Chưa có định mức nào.' : 'Không tìm thấy chức danh phù hợp.'}</td></tr>`;
@@ -2755,13 +2792,30 @@ function renderTableDinhMuc() {
   }
 
   let rows = '';
-  chucDanhs.forEach(cd => {
+  chucDanhs.forEach((cd, idx) => {
     const items = grouped[cd];
+    const cdSafe = cd.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const isFirst = idx === 0;
+    const isLast  = idx === chucDanhs.length - 1;
+
+    // Admin controls: đổi tên, xóa chức danh, di chuyển lên/xuống
+    const adminControls = _adminLoggedIn ? `
+      <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;float:right;">
+        <button class="btn btn-primary btn-sm" style="padding:3px 10px;font-size:12px;" onclick="openModalDinhMucForCD('${cdSafe}')" title="Thêm trang bị">➕ Thêm trang bị</button>
+        <button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:12px;" onclick="openRenameChucDanh('${cdSafe}')" title="Đổi tên chức danh">✏️ Đổi tên</button>
+        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:12px;" onclick="deleteChucDanh('${cdSafe}')" title="Xóa toàn bộ chức danh này">🗑️ Xóa</button>
+        <button class="btn btn-outline btn-sm" style="padding:3px 7px;font-size:13px;${isFirst?'opacity:.35;cursor:default;':''}" onclick="${isFirst?'':'moveChucDanh(\''+cdSafe+'\',\'up\')'}" title="Chuyển lên trên" ${isFirst?'disabled':''}>⬆️</button>
+        <button class="btn btn-outline btn-sm" style="padding:3px 7px;font-size:13px;${isLast?'opacity:.35;cursor:default;':''}" onclick="${isLast?'':'moveChucDanh(\''+cdSafe+'\',\'down\')'}" title="Chuyển xuống dưới" ${isLast?'disabled':''}>⬇️</button>
+      </span>` : `
+      <button class="btn btn-primary btn-sm" style="margin-left:12px;padding:3px 10px;font-size:12px;visibility:hidden;">➕</button>`;
+
     rows += `<tr style="background:#eaf2fb;">
       <td colspan="4" style="font-weight:700;color:var(--primary);padding:10px 14px;font-size:14px;border-bottom:2px solid var(--primary-light);">
-        👷 ${cd}
-        <span style="font-size:12px;font-weight:400;color:var(--text-light);margin-left:8px;">(${items.length} trang bị)</span>
-        ${_adminLoggedIn ? `<button class="btn btn-primary btn-sm" style="margin-left:12px;padding:3px 10px;font-size:12px;" onclick="openModalDinhMucForCD('${cd.replace(/'/g,"\\'")}')">➕ Thêm trang bị</button>` : ''}
+        <span style="display:inline-flex;align-items:center;gap:8px;width:100%;">
+          <span>👷 ${cd}</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text-light);">(${items.length} trang bị)</span>
+          ${adminControls}
+        </span>
       </td>
     </tr>`;
     items.forEach(d => {
@@ -2780,6 +2834,77 @@ function renderTableDinhMuc() {
     });
   });
   tbody.innerHTML = rows;
+}
+
+// Mở modal đổi tên chức danh
+function openRenameChucDanh(cd) {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể thực hiện thao tác này.', 'error'); return; }
+  document.getElementById('rename-cd-old').value = cd;
+  document.getElementById('rename-cd-current').textContent = cd;
+  document.getElementById('rename-cd-new').value = cd;
+  openModal('modal-rename-cd');
+  setTimeout(() => {
+    const el = document.getElementById('rename-cd-new');
+    if (el) { el.focus(); el.select(); }
+  }, 120);
+}
+
+// Lưu đổi tên chức danh
+function saveRenameChucDanh() {
+  if (!_adminLoggedIn) return;
+  const oldName = document.getElementById('rename-cd-old').value;
+  const newName = document.getElementById('rename-cd-new').value.trim();
+  if (!newName) { showToast('Tên chức danh không được để trống!', 'error'); return; }
+  if (newName === oldName) { closeModal('modal-rename-cd'); return; }
+  // Kiểm tra tên mới đã tồn tại chưa
+  const existed = daDinhMuc.some(d => d.chucDanh === newName);
+  if (existed) {
+    if (!confirm(`Chức danh "${newName}" đã tồn tại. Tiếp tục sẽ gộp định mức vào cùng chức danh đó. Bạn có chắc không?`)) return;
+  }
+  // Đổi tên trong daDinhMuc
+  daDinhMuc.forEach(d => { if (d.chucDanh === oldName) d.chucDanh = newName; });
+  // Đổi tên trong daChucDanhOrder (hoặc xóa nếu đã tồn tại để tránh trùng)
+  if (existed) {
+    daChucDanhOrder = daChucDanhOrder.filter(cd => cd !== oldName);
+  } else {
+    const i = daChucDanhOrder.indexOf(oldName);
+    if (i >= 0) daChucDanhOrder[i] = newName;
+  }
+  saveData('dinhmuc', daDinhMuc);
+  saveData('chucdarnh-order', daChucDanhOrder);
+  markLocalChanged();
+  closeModal('modal-rename-cd');
+  renderTableDinhMuc();
+  showToast(`✅ Đã đổi tên chức danh thành "${newName}".`);
+}
+
+// Xóa toàn bộ chức danh (xóa hết định mức thuộc chức danh đó)
+function deleteChucDanh(cd) {
+  if (!_adminLoggedIn) { showToast('Chỉ quản trị viên mới có thể thực hiện thao tác này.', 'error'); return; }
+  const count = daDinhMuc.filter(d => d.chucDanh === cd).length;
+  if (!confirm(`Xóa chức danh "${cd}" và toàn bộ ${count} định mức của chức danh này?\n\nThao tác này không thể hoàn tác.`)) return;
+  daDinhMuc = daDinhMuc.filter(d => d.chucDanh !== cd);
+  daChucDanhOrder = daChucDanhOrder.filter(x => x !== cd);
+  saveData('dinhmuc', daDinhMuc);
+  saveData('chucdarnh-order', daChucDanhOrder);
+  markLocalChanged();
+  renderTableDinhMuc();
+  showToast(`🗑️ Đã xóa chức danh "${cd}" và ${count} định mức.`, 'warning');
+}
+
+// Di chuyển chức danh lên/xuống trong daChucDanhOrder
+function moveChucDanh(cd, dir) {
+  if (!_adminLoggedIn) return;
+  _syncChucDanhOrder();
+  const i = daChucDanhOrder.indexOf(cd);
+  if (i < 0) return;
+  if (dir === 'up'   && i === 0) return;
+  if (dir === 'down' && i === daChucDanhOrder.length - 1) return;
+  const j = dir === 'up' ? i - 1 : i + 1;
+  [daChucDanhOrder[i], daChucDanhOrder[j]] = [daChucDanhOrder[j], daChucDanhOrder[i]];
+  saveData('chucdarnh-order', daChucDanhOrder);
+  markLocalChanged();
+  renderTableDinhMuc();
 }
 
 function _buildDinhMucTrangBiOptions(selectedId) {
@@ -3836,17 +3961,23 @@ async function pullFromSheets() {
 
   syncLog('⏳ Đang tải dữ liệu từ Google Sheets...');
   try {
-    const [nv, dm, dinh, tk, tkls, grp] = await Promise.all([
+    const [nv, dm, dinh, tk, tkls, grp, cdOrder] = await Promise.all([
       sheetGet('nhanvien'),
       sheetGet('danhmuc'),
       sheetGet('dinhmuc'),
       sheetGet('tonkho'),
       sheetGet('tonkho-lichsu'),
       sheetGet('nhom-nv'),
+      sheetGet('chucdarnh-order'),
     ]);
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); }
     if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  }
     if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  }
+    if (Array.isArray(cdOrder) && cdOrder.length) {
+      daChucDanhOrder = cdOrder; saveData('chucdarnh-order', daChucDanhOrder);
+    } else {
+      _syncChucDanhOrder(); // tự suy từ daDinhMuc nếu Sheets chưa có thứ tự
+    }
     if (tk && typeof tk === 'object' && !Array.isArray(tk)) {
       daTonKho = tk; saveData('tonkho', daTonKho);
     }
@@ -3915,12 +4046,13 @@ async function pushAllToSheets() {
   syncLog('⏳ Đang đẩy toàn bộ dữ liệu...');
   try {
     await Promise.all([
-      sheetPost('nhanvien',      daNhanVien),
-      sheetPost('danhmuc',       daDanhMuc),
-      sheetPost('dinhmuc',       daDinhMuc),
-      sheetPost('tonkho',        daTonKho),
-      sheetPost('tonkho-lichsu', daTonKhoLichSu),
-      sheetPost('nhom-nv',       daGroups),
+      sheetPost('nhanvien',       daNhanVien),
+      sheetPost('danhmuc',        daDanhMuc),
+      sheetPost('dinhmuc',        daDinhMuc),
+      sheetPost('chucdarnh-order', daChucDanhOrder),
+      sheetPost('tonkho',         daTonKho),
+      sheetPost('tonkho-lichsu',  daTonKhoLichSu),
+      sheetPost('nhom-nv',        daGroups),
     ]);
     syncLog(`✅ Đẩy thành công! ${daNhanVien.length} NV – ${daDanhMuc.length} danh mục – ${daDinhMuc.length} định mức – ${daGroups.length} nhóm.`, 'success');
     showToast('Đã đẩy toàn bộ dữ liệu lên Google Sheets!');
@@ -3965,12 +4097,13 @@ async function quickPush() {
   if (bar) bar.innerHTML = '<span style="font-size:13px;color:#856404;font-weight:600;">⏳ Đang đẩy dữ liệu lên Google Sheets...</span>';
   try {
     await Promise.all([
-      sheetPost('nhanvien',      daNhanVien),
-      sheetPost('danhmuc',       daDanhMuc),
-      sheetPost('dinhmuc',       daDinhMuc),
-      sheetPost('tonkho',        daTonKho),
-      sheetPost('tonkho-lichsu', daTonKhoLichSu),
-      sheetPost('nhom-nv',       daGroups),
+      sheetPost('nhanvien',       daNhanVien),
+      sheetPost('danhmuc',        daDanhMuc),
+      sheetPost('dinhmuc',        daDinhMuc),
+      sheetPost('chucdarnh-order', daChucDanhOrder),
+      sheetPost('tonkho',         daTonKho),
+      sheetPost('tonkho-lichsu',  daTonKhoLichSu),
+      sheetPost('nhom-nv',        daGroups),
     ]);
     clearLocalChanges();
     showToast('✅ Đã đẩy dữ liệu lên Google Sheets thành công!');
@@ -5786,14 +5919,20 @@ initAuth();
   if (!_sheetUrl || _hasLocalChanges) return;
   showSyncLoading();
   try {
-    const [nv, dm, dinh, tk, tkls, grp] = await Promise.all([
+    const [nv, dm, dinh, tk, tkls, grp, cdOrder] = await Promise.all([
       sheetGet('nhanvien'), sheetGet('danhmuc'), sheetGet('dinhmuc'),
-      sheetGet('tonkho'), sheetGet('tonkho-lichsu'), sheetGet('nhom-nv')
+      sheetGet('tonkho'), sheetGet('tonkho-lichsu'), sheetGet('nhom-nv'),
+      sheetGet('chucdarnh-order'),
     ]);
     let changed = false;
     if (nv.length)   { daNhanVien = nv;   saveData('nhanvien',      daNhanVien); changed = true; }
     if (dm.length)   { daDanhMuc  = dm;   saveData('danhmuc',       daDanhMuc);  changed = true; }
     if (dinh.length) { daDinhMuc  = dinh; saveData('dinhmuc',       daDinhMuc);  changed = true; }
+    if (Array.isArray(cdOrder) && cdOrder.length) {
+      daChucDanhOrder = cdOrder; saveData('chucdarnh-order', daChucDanhOrder); changed = true;
+    } else if (dinh.length) {
+      _syncChucDanhOrder(); // suy từ daDinhMuc nếu Sheets chưa có thứ tự
+    }
     if (tk && typeof tk === 'object' && !Array.isArray(tk)) {
       daTonKho = tk; saveData('tonkho', daTonKho); changed = true;
     }
