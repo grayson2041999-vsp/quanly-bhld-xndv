@@ -3676,7 +3676,7 @@ function exportPhieuWord() {
   <tr>
     <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Trưởng phòng KTVT</strong></td>
     <td style="width:34%;text-align:center;padding:4pt 4pt 52pt;"><strong>Thủ kho</strong></td>
-    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Cảng trưởng</strong></td>
+    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Lãnh đạo đơn vị</strong></td>
   </tr>
   <tr>
     <td style="text-align:center;padding:2pt;">&nbsp;</td>
@@ -3740,16 +3740,31 @@ async function exportChiTietExcel() {
 
   const wb = XLSX.utils.book_new();
 
-  // --- Sheet 1: Chi tiết theo nhân viên ---
+  // --- Sheet 1: Chi tiết theo nhân viên (per-person) + bulk cuối bảng ---
   const s1 = [
     [`DANH SÁCH CẤP PHÁT BHLĐ – ${quyLabel} – ${filterDonVi}`],
     [],
     ['STT', 'Danh số', 'Họ và Tên', 'Chức danh', 'Đơn vị', 'Trang bị BHLĐ', 'SL định mức', 'SL thực tế', 'Ghi chú']
   ];
+  const bulkExcelMap = {};
   let stt = 0;
   rows.forEach(r => {
+    // Tách per-person vs bulk
+    const perItems = r.items.filter(it => !_isBulkTB(getTB(it.tbId)));
+    const blkItems = r.items.filter(it =>  _isBulkTB(getTB(it.tbId)));
+
+    // Tích lũy bulk
+    blkItems.forEach(it => {
+      const key   = `${r.nv.id}_${it.tbId}`;
+      const saved = qData[key] || {};
+      const tt    = saved.thucTe !== undefined && saved.thucTe !== '' ? Number(saved.thucTe) : 0;
+      if (!bulkExcelMap[it.tbId]) bulkExcelMap[it.tbId] = { ten: it.ten, donVi: it.donVi, tt: 0 };
+      bulkExcelMap[it.tbId].tt += tt;
+    });
+
+    if (perItems.length === 0) return;
     stt++;
-    r.items.forEach((it, j) => {
+    perItems.forEach((it, j) => {
       const key   = `${r.nv.id}_${it.tbId}`;
       const saved = qData[key] || {};
       const tt    = saved.thucTe !== undefined && saved.thucTe !== '' ? saved.thucTe : '';
@@ -3761,6 +3776,17 @@ async function exportChiTietExcel() {
       }
     });
   });
+
+  // Thêm phần bulk cuối bảng
+  if (Object.keys(bulkExcelMap).length > 0) {
+    s1.push([]);
+    s1.push(['', '', '', '', '', '🧤 Vật tư cấp theo tổng số lượng', '', '', '']);
+    s1.push(['STT', '', '', '', '', 'Trang bị', 'ĐVT', 'Tổng thực tế', '']);
+    Object.values(bulkExcelMap).forEach((b, i) => {
+      s1.push([i + 1, '', '', '', '', b.ten, b.donVi, b.tt, '']);
+    });
+  }
+
   const ws1 = XLSX.utils.aoa_to_sheet(s1);
   ws1['!cols'] = [{wch:6},{wch:12},{wch:24},{wch:22},{wch:20},{wch:32},{wch:13},{wch:13},{wch:24}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Chi tiết NV');
@@ -5772,19 +5798,27 @@ function _buildPhieuCard(r, readonly) {
     </tr>`;
   });
 
-  // Build detail table (chi tiết từng nhân viên)
-  const detailRows = [];
+  // Build detail table — tách per-person vs bulk (găng tay vải bạt, khẩu trang)
   const nvGroupMap = {};
+  const bulkCardMap = {};
   Object.entries(snapshot).forEach(([key, val]) => {
     const [nvId, tbId] = key.split('_');
-    if (!nvGroupMap[nvId]) nvGroupMap[nvId] = [];
-    nvGroupMap[nvId].push({ tbId, val });
+    const tb = getTB(parseInt(tbId));
+    if (_isBulkTB(tb)) {
+      if (!bulkCardMap[tbId]) bulkCardMap[tbId] = { ten: tb.ten, dvt: tb.donVi || '—', ttTotal: 0 };
+      bulkCardMap[tbId].ttTotal += (val.thucTe !== '' && val.thucTe !== undefined) ? Number(val.thucTe) : 0;
+    } else {
+      if (!nvGroupMap[nvId]) nvGroupMap[nvId] = [];
+      nvGroupMap[nvId].push({ tbId, val });
+    }
   });
+
+  const detailRows = [];
   let stt = 0;
   Object.entries(nvGroupMap).forEach(([nvId, items]) => {
     const nv = daNhanVien.find(n => String(n.id) === String(nvId));
-    const nvName = nv ? nv.hoTen : `NV#${nvId}`;
-    const nvCode = nv ? (nv.maNV || nv.danhSo || '—') : '—';
+    const nvName = nv ? nv.ten : `NV#${nvId}`;
+    const nvCode = nv ? (nv.ma || '—') : '—';
     const nvTitle = nv ? (nv.chucDanh || '—') : '—';
     items.forEach(({ tbId, val }) => {
       stt++;
@@ -5806,6 +5840,17 @@ function _buildPhieuCard(r, readonly) {
         <td>${ghiChu}</td>
       </tr>`);
     });
+  });
+
+  // Bulk rows
+  const bulkCardRows = Object.values(bulkCardMap).map((b, i) => {
+    const rowBg = i % 2 === 0 ? 'white' : 'var(--bg)';
+    return `<tr style="background:${rowBg};">
+      <td style="text-align:center;">${i + 1}</td>
+      <td>${b.ten}</td>
+      <td style="text-align:center;">${b.dvt}</td>
+      <td style="text-align:center;font-weight:600;color:var(--primary);">${b.ttTotal}</td>
+    </tr>`;
   });
 
   const thStyle = 'padding:7px 8px;white-space:nowrap;';
@@ -5844,22 +5889,43 @@ function _buildPhieuCard(r, readonly) {
       </div>
 
       <!-- BẢNG CHI TIẾT -->
-      <div id="panel-chitiet-${r.id}" style="display:none;overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-          <thead>
-            <tr style="background:var(--primary);color:white;">
-              <th style="${thStyle}text-align:center;">STT</th>
-              <th style="${thStyle}text-align:left;">Họ và tên</th>
-              <th style="${thStyle}text-align:center;">Danh số</th>
-              <th style="${thStyle}text-align:left;">Chức danh</th>
-              <th style="${thStyle}text-align:left;">Trang bị BHLĐ</th>
-              <th style="${thStyle}text-align:center;">Định mức</th>
-              <th style="${thStyle}text-align:center;">Thực tế</th>
-              <th style="${thStyle}text-align:left;">Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>${detailRows.join('')}</tbody>
-        </table>
+      <div id="panel-chitiet-${r.id}" style="display:none;">
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+              <tr style="background:var(--primary);color:white;">
+                <th style="${thStyle}text-align:center;">STT</th>
+                <th style="${thStyle}text-align:left;">Họ và tên</th>
+                <th style="${thStyle}text-align:center;">Danh số</th>
+                <th style="${thStyle}text-align:left;">Chức danh</th>
+                <th style="${thStyle}text-align:left;">Trang bị BHLĐ</th>
+                <th style="${thStyle}text-align:center;">Định mức</th>
+                <th style="${thStyle}text-align:center;">Thực tế</th>
+                <th style="${thStyle}text-align:left;">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>${detailRows.join('')}</tbody>
+          </table>
+        </div>
+        ${bulkCardRows.length > 0 ? `
+        <div style="margin-top:12px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:6px;padding:4px 8px;background:var(--bg);border-radius:4px;">
+            🧤 Vật tư cấp theo tổng số lượng (Găng tay vải bạt, Khẩu trang)
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+              <thead>
+                <tr style="background:#6c757d;color:white;">
+                  <th style="${thStyle}text-align:center;">STT</th>
+                  <th style="${thStyle}text-align:left;">Trang bị</th>
+                  <th style="${thStyle}text-align:center;">ĐVT</th>
+                  <th style="${thStyle}text-align:center;">Tổng thực tế</th>
+                </tr>
+              </thead>
+              <tbody>${bulkCardRows.join('')}</tbody>
+            </table>
+          </div>
+        </div>` : ''}
       </div>
     </div>` : '';
 
@@ -5895,6 +5961,15 @@ function _buildPhieuCard(r, readonly) {
     ${adminNoteEl}
     ${noteEl}
   </div>`;
+}
+
+/**
+ * Phân loại trang bị: găng tay vải bạt và khẩu trang chỉ hiển thị tổng số lượng,
+ * không cần gắn với từng nhân viên.
+ */
+function _isBulkTB(tb) {
+  if (!tb) return false;
+  return tb.loai === 'Bảo vệ hô hấp' || tb.nhom === 'Găng tay vải bạt';
 }
 
 /**
@@ -5963,19 +6038,27 @@ function printPhieuRequest(id) {
     </tr>`;
   });
 
-  // ---- BẢNG CHI TIẾT ----
-  const nvGroupMap = {};
+  // ---- BẢNG CHI TIẾT: tách per-person và bulk ----
+  const nvGroupMapP = {};
+  const bulkPrintMap = {};
   Object.entries(snapshot).forEach(([key, val]) => {
     const [nvId, tbId] = key.split('_');
-    if (!nvGroupMap[nvId]) nvGroupMap[nvId] = [];
-    nvGroupMap[nvId].push({ tbId, val });
+    const tb = getTB(parseInt(tbId));
+    if (_isBulkTB(tb)) {
+      if (!bulkPrintMap[tbId]) bulkPrintMap[tbId] = { ten: tb.ten, dvt: tb.donVi || '—', ttTotal: 0 };
+      bulkPrintMap[tbId].ttTotal += (val.thucTe !== '' && val.thucTe !== undefined) ? Number(val.thucTe) : 0;
+    } else {
+      if (!nvGroupMapP[nvId]) nvGroupMapP[nvId] = [];
+      nvGroupMapP[nvId].push({ tbId, val });
+    }
   });
+
   let stt = 0;
   let detailTableRows = '';
-  Object.entries(nvGroupMap).forEach(([nvId, items]) => {
+  Object.entries(nvGroupMapP).forEach(([nvId, items]) => {
     const nv = daNhanVien.find(n => String(n.id) === String(nvId));
-    const nvName = nv ? nv.hoTen : `NV#${nvId}`;
-    const nvCode = nv ? (nv.maNV || nv.danhSo || '—') : '—';
+    const nvName = nv ? nv.ten : `NV#${nvId}`;
+    const nvCode = nv ? (nv.ma || '—') : '—';
     const nvTitle = nv ? (nv.chucDanh || '—') : '—';
     items.forEach(({ tbId, val }) => {
       stt++;
@@ -5997,6 +6080,17 @@ function printPhieuRequest(id) {
         <td style="border:1px solid #dee2e6;padding:6px 8px;">${ghiChu}</td>
       </tr>`;
     });
+  });
+
+  let bulkPrintRows = '';
+  Object.values(bulkPrintMap).forEach((b, i) => {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    bulkPrintRows += `<tr style="background:${bg};">
+      <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${i + 1}</td>
+      <td style="border:1px solid #dee2e6;padding:6px 8px;">${b.ten}</td>
+      <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${b.dvt}</td>
+      <td style="text-align:center;font-weight:600;border:1px solid #dee2e6;padding:6px 8px;">${b.ttTotal}</td>
+    </tr>`;
   });
 
   const thHead = `<tr style="background:#003087;color:white;">
@@ -6070,6 +6164,22 @@ function printPhieuRequest(id) {
     <tbody>${detailTableRows}</tbody>
   </table>
 
+  ${bulkPrintRows ? `
+  <h3 style="font-size:13px;margin:18px 0 6px;color:#555;border-bottom:1px solid #ccc;padding-bottom:4px;">
+    🧤 Vật tư cấp theo tổng số lượng (Găng tay vải bạt, Khẩu trang)
+  </h3>
+  <table>
+    <thead>
+      <tr style="background:#6c757d;color:white;">
+        <th style="padding:7px 8px;border:1px solid #6c757d;text-align:center;white-space:nowrap;">STT</th>
+        <th style="padding:7px 8px;border:1px solid #6c757d;white-space:nowrap;">Trang bị</th>
+        <th style="padding:7px 8px;border:1px solid #6c757d;text-align:center;white-space:nowrap;">ĐVT</th>
+        <th style="padding:7px 8px;border:1px solid #6c757d;text-align:center;white-space:nowrap;">Tổng thực tế</th>
+      </tr>
+    </thead>
+    <tbody>${bulkPrintRows}</tbody>
+  </table>` : ''}
+
   <div class="footer">
     <div><p>Người lập phiếu</p><p class="sign-name">${r.email || ''}</p></div>
     <div><p>Kho / Cấp phát</p><p class="sign-name">&nbsp;</p></div>
@@ -6092,35 +6202,39 @@ async function approvePhieuRequest(id) {
   const note = document.getElementById(`phieu-note-${id}`)?.value.trim() || '';
   if (!confirm(`Chấp thuận phiếu "${r.quyStr}" của "${r.donVi}"?\nHệ thống sẽ tự động cập nhật ngày cấp cho các nhân viên được phát 4 nhóm vật tư (quần áo, giày, nón, kính).`)) return;
 
-  // Bản đồ loai → field thangCap*
   const snapshot = r.snapshot || {};
   let updatedCount = 0;
 
+  // Gom nhóm theo nhân viên: nvId → { field → tbId đầu tiên tìm được }
+  // (mỗi field chỉ cần 1 tbId đại diện để tra định mức và tính tháng cấp)
+  const nvUpdateMap = {};
   Object.entries(snapshot).forEach(([key, val]) => {
     if (!val.thucTe || val.thucTe <= 0) return;
-    const parts = key.split('_');
-    const nvId = parts[0];
-    const tbId = parseInt(parts[1]);
-    const nv = daNhanVien.find(n => n.id === nvId);
-    if (!nv) return;
+    const [nvId, tbIdStr] = key.split('_');
+    const tbId = parseInt(tbIdStr);
     const tb = getTB(tbId);
     if (!tb) return;
     const field = LOAI_TO_THANG_CAP[tb.loai];
-    if (!field) return; // không phải 4 nhóm tracking → bỏ qua
+    if (!field) return;
+    if (!nvUpdateMap[nvId]) nvUpdateMap[nvId] = {};
+    if (!nvUpdateMap[nvId][field]) nvUpdateMap[nvId][field] = tbId; // lưu tbId đại diện
+  });
 
-    // Tìm định mức của nhân viên cho trang bị này
-    const dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
-    if (!dmEntry) return;
-
-    // Tính ngày cấp dự kiến (theo lịch, không theo ngày duyệt)
-    const nextDate = tinhThangCapTiepTheo(nv, dmEntry);
-    if (!nextDate || nextDate === 'quarterly') return;
-
-    // Ghi nhận ngày đó là ngày cấp mới nhất
-    nv[field] = nextDate;
-    // Nếu là NV mới được cấp lần đầu, đánh dấu thành NV cũ để các lần sau tính từ ngày này
+  Object.entries(nvUpdateMap).forEach(([nvId, fieldMap]) => {
+    // Fix type mismatch: n.id là number, nvId từ split là string
+    const nv = daNhanVien.find(n => String(n.id) === nvId);
+    if (!nv) return;
+    Object.entries(fieldMap).forEach(([field, tbId]) => {
+      const dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
+      if (!dmEntry) return;
+      // Lấy đúng tháng theo lịch cấp (tháng gần nhất phù hợp với chu kỳ định mức)
+      const schedDate = tinhThangCapTiepTheo(nv, dmEntry);
+      if (!schedDate || schedDate === 'quarterly') return;
+      nv[field] = schedDate;
+      updatedCount++;
+    });
+    // Nếu là NV mới được cấp lần đầu, đánh dấu thành NV cũ để lần sau tính từ tháng này
     if (!nv.loaiNV || nv.loaiNV === 'moi') nv.loaiNV = 'cu';
-    updatedCount++;
   });
 
   try {
