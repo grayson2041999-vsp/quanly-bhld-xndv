@@ -1936,7 +1936,8 @@ if (!Array.isArray(daQuyList) || daQuyList.length === 0) daQuyList = _defaultQuy
 daNhanVien = daNhanVien.map(n => ({
   loaiNV: 'cu', thangCapQuanAo: '', thangCapGiay: '', thangCapNon: '', thangCapKinh: '',
   thangCapAoMua: '', thangCapQAHan: '',
-  nhomId: null,   // nhóm nội bộ trong đơn vị (null = chưa xếp nhóm)
+  nhomId: null,       // nhóm nội bộ trong đơn vị (null = chưa xếp nhóm)
+  gioiTinh: 'nam',   // mặc định nam cho NV chưa có trường này
   ...n
 }));
 saveData('nhanvien', daNhanVien);
@@ -3214,15 +3215,30 @@ function getCurrentQuy() {
 
 /**
  * Trả về item danh mục đúng cỡ cho nhân viên.
- * - Quần áo: dùng nv.coQuanAo
+ * - Quần áo: dùng nv.coQuanAo; nếu NV nữ (gioiTinh==='nu' hoặc nu===true)
+ *   thì tìm trong nhóm 'Bộ quần áo nữ' thay vì nhóm gốc.
  * - Giày dép: dùng nv.coGiay
  * - Loại khác: giữ nguyên
  */
 function getTBSized(tb, nv) {
   if (!tb) return null;
+  const isNuNV = nv.gioiTinh === 'nu' || nv.nu === true;
   let size = null;
-  if (tb.loai === 'Quần áo') size = nv.coQuanAo;
-  else if (tb.loai === 'Giày dép') size = nv.coGiay;
+  if (tb.loai === 'Quần áo') {
+    size = nv.coQuanAo;
+    // NV nữ → đổi sang bộ quần áo nữ (không áp dụng cho áo mưa và QA thợ hàn)
+    if (isNuNV && tb.nhom !== 'Áo mưa' && tb.nhom !== 'Bộ quần áo thợ hàn') {
+      if (size) {
+        const found = daDanhMuc.find(d => d.nhom === 'Bộ quần áo nữ' && d.ten.includes('cỡ ' + size));
+        if (found) return found;
+      }
+      // Fallback: item bất kỳ trong nhóm quần áo nữ
+      const anyNu = daDanhMuc.find(d => d.nhom === 'Bộ quần áo nữ');
+      if (anyNu) return anyNu;
+    }
+  } else if (tb.loai === 'Giày dép') {
+    size = nv.coGiay;
+  }
   if (size) {
     const found = daDanhMuc.find(d => d.nhom === tb.nhom && d.ten.includes('cỡ ' + size));
     if (found) return found;
@@ -3948,9 +3964,9 @@ function tinhThangCapTiepTheo(nv, dmEntry) {
   const isNon    = tb.loai === 'Mũ nón';
   const isKinh   = tb.loai === 'Bảo vệ mắt/mặt';
   // Trang bị cấp 2 cái lần đầu cho NV mới → lần tiếp theo = vào làm + 2×chuKy
-  // (Quần áo, giày, áo mưa, quần áo thợ hàn: nhận 2 cái → +2 chu kỳ)
-  // Mũ nón, kính: nhận 1 cái → +1 chu kỳ (multiplier mặc định = 1)
-  const isDoubleFirst = isQuanAo || isAoMua || isQAHan || isGiay;
+  // (Quần áo, giày, áo mưa, quần áo thợ hàn, kính: nhận 2 cái → +2 chu kỳ)
+  // Mũ nón: nhận 1 cái → +1 chu kỳ (multiplier mặc định = 1)
+  const isDoubleFirst = isQuanAo || isAoMua || isQAHan || isGiay || isKinh;
 
   let lastMonthStr = null;
   let multiplier = 1;
@@ -5684,8 +5700,8 @@ function computePendingDiff(submitted, base) { return computeDiff(submitted, bas
 
 /**
  * Tự động chuyển NV mới → NV cũ và tính tháng cấp khi được admin duyệt vào hệ thống.
- * Quần áo, giày, kính (và quần áo thợ hàn): tháng vào làm + 1 chu kỳ cấp.
- * Mũ nón, áo mưa, các trang bị khác: đúng tháng vào làm (cấp lần đầu là tháng đó).
+ * Quần áo, giày, kính, áo mưa (và quần áo thợ hàn): tháng vào làm + 1 chu kỳ cấp (nhận 2 cái lần đầu).
+ * Mũ nón: đúng tháng vào làm (nhận 1 cái, không nhân đôi).
  */
 function _autoConvertNVMoi(nv) {
   if (nv.loaiNV !== 'moi') return nv;
@@ -5724,8 +5740,8 @@ function _autoConvertNVMoi(nv) {
       // Giày nhận 2 đôi → lần tiếp theo = vào làm + 1×chuKy
       if (!updated.thangCapGiay) updated.thangCapGiay = addMonths(baseY, baseM, chuKy);
     } else if (tb.loai === 'Bảo vệ mắt/mặt') {
-      // Kính nhận 1 cái → ghi nhận đúng tháng vào làm (lần tiếp = vào làm + 1×chuKy)
-      if (!updated.thangCapKinh) updated.thangCapKinh = baseMY;
+      // Kính nhận 2 cái → lần tiếp theo = vào làm + 1×chuKy (giống quần áo, giày)
+      if (!updated.thangCapKinh) updated.thangCapKinh = addMonths(baseY, baseM, chuKy);
     } else if (tb.loai === 'Mũ nón') {
       // Mũ nhận 1 cái → ghi nhận đúng tháng vào làm (lần tiếp = vào làm + 1×chuKy)
       if (!updated.thangCapNon) updated.thangCapNon = baseMY;
