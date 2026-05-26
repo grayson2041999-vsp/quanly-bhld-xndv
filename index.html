@@ -3264,7 +3264,17 @@ function renderBaoCao() {
 }
 
 // Lưu giá trị thực tế / ghi chú vào phieuData
-function savePhieuField(quyStr, key, field, value) {
+function savePhieuField(quyStr, key, field, value, maxVal) {
+  if (field === 'thucTe' && value !== '') {
+    const num = parseFloat(value) || 0;
+    if (maxVal !== undefined && num > maxVal) {
+      showToast(`⚠️ Số lượng thực tế không được vượt quá định mức (${maxVal})!`, 'warning');
+      // Ép về đúng maxVal và cập nhật ô input
+      value = String(maxVal);
+      const inp = document.querySelector(`input[onchange*="'${key}'"]`);
+      if (inp) inp.value = maxVal;
+    }
+  }
   if (!phieuData[quyStr]) phieuData[quyStr] = {};
   if (!phieuData[quyStr][key]) phieuData[quyStr][key] = {};
   phieuData[quyStr][key][field] = (field === 'thucTe') ? (value === '' ? '' : parseFloat(value) || 0) : value;
@@ -3318,7 +3328,7 @@ async function submitPhieuForApproval() {
   // Lọc chỉ những key thuộc đơn vị này và có thực tế > 0
   const nvIds = new Set(rows.map(r => r.nv.id));
   const hasThucTe = Object.entries(qData).some(([k, v]) => {
-    const nvId = k.split('_')[0];
+    const nvId = Number(k.split('_')[0]);
     return nvIds.has(nvId) && v.thucTe !== '' && v.thucTe !== undefined && v.thucTe > 0;
   });
   if (!hasThucTe) {
@@ -3329,7 +3339,7 @@ async function submitPhieuForApproval() {
   // Tạo snapshot — chỉ lưu các dòng thuộc đơn vị
   const snapshot = {};
   Object.entries(qData).forEach(([k, v]) => {
-    const nvId = k.split('_')[0];
+    const nvId = Number(k.split('_')[0]);
     if (nvIds.has(nvId)) snapshot[k] = { ...v };
   });
 
@@ -3475,7 +3485,7 @@ function renderBaoCaoQuy() {
         const ttVal = saved.thucTe !== undefined && saved.thucTe !== '' ? saved.thucTe : '';
         const gcVal = (saved.ghiChu || '').replace(/"/g, '&quot;');
         const ttInput = canInput
-          ? `<input type="number" min="0" ${_inputStyle} value="${ttVal}" onchange="savePhieuField('${quyStr}','${key}','thucTe',this.value)">`
+          ? `<input type="number" min="0" max="${it.soLuong}" ${_inputStyle} value="${ttVal}" onchange="savePhieuField('${quyStr}','${key}','thucTe',this.value,${it.soLuong})">`
           : (ttVal !== '' ? `<strong>${ttVal}</strong>` : '<span style="color:var(--text-light);">—</span>');
         const gcInput = canInput
           ? `<input type="text" ${_textStyle} value="${gcVal}" onchange="savePhieuField('${quyStr}','${key}','ghiChu',this.value)">`
