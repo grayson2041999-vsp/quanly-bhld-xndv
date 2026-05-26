@@ -6225,7 +6225,19 @@ async function approvePhieuRequest(id) {
     const nv = daNhanVien.find(n => String(n.id) === nvId);
     if (!nv) return;
     Object.entries(fieldMap).forEach(([field, tbId]) => {
-      const dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
+      // Tìm dmEntry: trước tiên theo tbId chính xác
+      let dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
+
+      // Nếu không thấy (vd: quần áo/giày có nhiều cỡ, daDinhMuc lưu cỡ gốc khác id),
+      // thì tìm qua nhom — bất kỳ item cùng nhom nào có định mức cho chức danh này
+      if (!dmEntry) {
+        const tbItem = getTB(tbId);
+        if (tbItem && tbItem.nhom) {
+          const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
+          dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+        }
+      }
+
       if (!dmEntry) return;
       // Lấy đúng tháng theo lịch cấp (tháng gần nhất phù hợp với chu kỳ định mức)
       const schedDate = tinhThangCapTiepTheo(nv, dmEntry);
