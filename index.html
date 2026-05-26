@@ -1400,8 +1400,12 @@
         <textarea id="nv-ghichu" placeholder="Ghi chú thêm..."></textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
       <button class="btn btn-outline" onclick="closeModal('modal-nv')">Hủy</button>
+      <button class="btn btn-outline" id="btn-phieu-nv-moi" onclick="printPhieuNVMoi()"
+        style="color:#1a7a4a;border-color:#1a7a4a;display:none;">
+        📄 Xuất phiếu yêu cầu cấp phát
+      </button>
       <button class="btn btn-primary" onclick="saveNV()">💾 Lưu</button>
     </div>
   </div>
@@ -2460,10 +2464,9 @@ function openModalNV() {
   clearMonthYear('nv-thang-qa-han');
   document.getElementById('nv-nu').checked = false;
   document.getElementById('nv-loai-moi').checked = true;
-  document.getElementById('nv-cu-section').style.display = 'none';
-  document.getElementById('nv-moi-note').style.display = 'block';
   document.getElementById('nv-moi-thang-m').value = '';
   document.getElementById('nv-moi-thang-y').value = '';
+  toggleLoaiNV();
   toggleQAHan();
   // Khoá đơn vị nếu đang đăng nhập tài khoản đơn vị
   const bpEl = document.getElementById('nv-bophan');
@@ -2494,8 +2497,7 @@ function editNV(id) {
   document.getElementById('nv-ghichu').value = n.ghiChu || '';
   const isCu = n.loaiNV === 'cu';
   document.getElementById(isCu ? 'nv-loai-cu' : 'nv-loai-moi').checked = true;
-  document.getElementById('nv-cu-section').style.display = isCu ? 'block' : 'none';
-  document.getElementById('nv-moi-note').style.display = isCu ? 'none' : 'block';
+  toggleLoaiNV();
   // Điền lại tháng/năm cấp lần đầu nếu là NV mới
   if (!isCu && n.ngayVaoLam && n.ngayVaoLam.length >= 7) {
     const parts = n.ngayVaoLam.split('-');
@@ -3819,6 +3821,8 @@ function toggleLoaiNV() {
   const isCu = document.getElementById('nv-loai-cu').checked;
   document.getElementById('nv-cu-section').style.display = isCu ? 'block' : 'none';
   document.getElementById('nv-moi-note').style.display = isCu ? 'none' : 'block';
+  const phieuBtn = document.getElementById('btn-phieu-nv-moi');
+  if (phieuBtn) phieuBtn.style.display = isCu ? 'none' : '';
 }
 
 // Ẩn/hiện ô "Tháng cấp bộ đồ thợ hàn" dựa theo chức danh đang chọn
@@ -5486,6 +5490,60 @@ function computeDiff(submitted, base) {
 // Giữ tên cũ để tương thích
 function computePendingDiff(submitted, base) { return computeDiff(submitted, base); }
 
+/**
+ * Tự động chuyển NV mới → NV cũ và tính tháng cấp khi được admin duyệt vào hệ thống.
+ * Quần áo, giày, kính (và quần áo thợ hàn): tháng vào làm + 1 chu kỳ cấp.
+ * Mũ nón, áo mưa, các trang bị khác: đúng tháng vào làm (cấp lần đầu là tháng đó).
+ */
+function _autoConvertNVMoi(nv) {
+  if (nv.loaiNV !== 'moi') return nv;
+  // Nếu không có ngayVaoLam thì chỉ đổi loại, không tính ngày
+  if (!nv.ngayVaoLam || nv.ngayVaoLam.length < 7) return { ...nv, loaiNV: 'cu' };
+
+  const baseMY = nv.ngayVaoLam.substring(0, 7); // "YYYY-MM"
+  const [baseY, baseM] = baseMY.split('-').map(Number);
+
+  // Hàm cộng N tháng vào (Y, M) → chuỗi "YYYY-MM"
+  function addMonths(y, m, n) {
+    const d = new Date(y, m - 1 + n, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const dmList = daDinhMuc.filter(d => d.chucDanh === nv.chucDanh);
+  const updated = { ...nv, loaiNV: 'cu' };
+
+  dmList.forEach(d => {
+    const tb = getTB(d.trangBiId);
+    if (!tb) return;
+    const chuKy = Number(d.chuKy) || 1;
+
+    if (tb.loai === 'Quần áo') {
+      if (tb.nhom === 'Bộ quần áo thợ hàn') {
+        // Thợ hàn: +1 chu kỳ
+        if (!updated.thangCapQAHan) updated.thangCapQAHan = addMonths(baseY, baseM, chuKy);
+      } else if (tb.nhom === 'Áo mưa') {
+        // Áo mưa: đúng tháng lần đầu
+        if (!updated.thangCapAoMua) updated.thangCapAoMua = baseMY;
+      } else {
+        // Quần áo BHLĐ thường: +1 chu kỳ
+        if (!updated.thangCapQuanAo) updated.thangCapQuanAo = addMonths(baseY, baseM, chuKy);
+      }
+    } else if (tb.loai === 'Giày dép') {
+      // Giày: +1 chu kỳ
+      if (!updated.thangCapGiay) updated.thangCapGiay = addMonths(baseY, baseM, chuKy);
+    } else if (tb.loai === 'Bảo vệ mắt/mặt') {
+      // Kính: +1 chu kỳ
+      if (!updated.thangCapKinh) updated.thangCapKinh = addMonths(baseY, baseM, chuKy);
+    } else if (tb.loai === 'Mũ nón') {
+      // Mũ: đúng tháng lần đầu
+      if (!updated.thangCapNon) updated.thangCapNon = baseMY;
+    }
+    // Găng tay, khẩu trang, ghệt da: không có trường thangCap riêng → bỏ qua
+  });
+
+  return updated;
+}
+
 async function approvePending(id) {
   if (!confirm('Duyệt yêu cầu này?\nDữ liệu nhân viên của đơn vị sẽ được gộp vào danh sách chính.')) return;
   const p = _pendingList.find(x => x.id === id);
@@ -5500,7 +5558,10 @@ async function approvePending(id) {
   //    (lọc ra cả những NV có mã trùng với submission để tránh trùng lặp)
   const otherEmps = daNhanVien.filter(nv => nv.boPhan !== donVi && !submittedMaSet.has(nv.ma));
   // 2. Nhân viên đơn vị NÀY: dùng thứ tự từ submission (phản ánh drag đơn vị đã làm)
-  const merged = [...otherEmps, ...submittedEmps];
+  //    Tự động chuyển NV mới → NV cũ, tính tháng cấp lần tiếp theo
+  const mergedEmps = submittedEmps.map(nv => _autoConvertNVMoi(nv));
+  const nvMoiCount = submittedEmps.filter(nv => nv.loaiNV === 'moi').length;
+  const merged = [...otherEmps, ...mergedEmps];
 
   try {
     // Cập nhật local — nhân viên
@@ -5523,7 +5584,8 @@ async function approvePending(id) {
     renderPendingList();
     renderDashboard();
     const nhomNote = (Array.isArray(p.nhom) && p.nhom.length > 0) ? ` + ${p.nhom.length} nhóm` : '';
-    showToast(`✅ Đã duyệt! Gộp ${p.nhanvien.length} nhân viên${nhomNote} từ "${p.donVi}".`);
+    const moiNote = nvMoiCount > 0 ? ` (${nvMoiCount} NV mới đã được tự động cập nhật lịch cấp)` : '';
+    showToast(`✅ Đã duyệt! Gộp ${p.nhanvien.length} nhân viên${nhomNote} từ "${p.donVi}".${moiNote}`);
   } catch(e) {
     showToast('❌ Lỗi khi duyệt: ' + e.message);
   }
@@ -5944,6 +6006,15 @@ function _buildPhieuCard(r, readonly) {
     ? `<div style="margin-top:10px;padding:8px 12px;border-radius:6px;background:#fff8e1;font-size:12.5px;border-left:3px solid var(--warning);">💬 Ghi chú admin: ${r.adminNote}</div>`
     : '';
 
+  const reapplyBtn = (r.status === 'approved')
+    ? `<div style="margin-top:10px;">
+        <button class="btn btn-outline btn-sm" onclick="reapplyPhieuDates('${r.id}')"
+          style="font-size:12px;padding:5px 14px;color:var(--primary);border-color:var(--primary);">
+          🔄 Cập nhật lại ngày cấp cho nhân viên
+        </button>
+       </div>`
+    : '';
+
   return `<div class="card" style="margin-bottom:16px;${readonly ? 'opacity:0.7;' : ''}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
       <div>
@@ -5959,6 +6030,7 @@ function _buildPhieuCard(r, readonly) {
     </div>
     ${detailTableEl}
     ${adminNoteEl}
+    ${reapplyBtn}
     ${noteEl}
   </div>`;
 }
@@ -6194,6 +6266,275 @@ function printPhieuRequest(id) {
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   window.open(URL.createObjectURL(blob), '_blank');
+}
+
+/** Áp dụng lại ngày cấp cho phiếu đã duyệt (dùng khi phiếu duyệt trước bản fix lỗi) */
+async function reapplyPhieuDates(id) {
+  const r = _phieuRequestList.find(x => x.id === id);
+  if (!r || r.status !== 'approved') return;
+  if (!confirm(`Cập nhật lại ngày cấp cho phiếu "${r.quyStr}" — "${r.donVi}"?\nThao tác này sẽ ghi đè tháng cấp hiện tại của các nhân viên trong phiếu này.`)) return;
+
+  const snapshot = r.snapshot || {};
+  let updatedCount = 0;
+
+  const nvUpdateMap = {};
+  Object.entries(snapshot).forEach(([key, val]) => {
+    if (!val.thucTe || val.thucTe <= 0) return;
+    const [nvId, tbIdStr] = key.split('_');
+    const tbId = parseInt(tbIdStr);
+    const tb = getTB(tbId);
+    if (!tb) return;
+    const field = LOAI_TO_THANG_CAP[tb.loai];
+    if (!field) return;
+    if (!nvUpdateMap[nvId]) nvUpdateMap[nvId] = {};
+    if (!nvUpdateMap[nvId][field]) nvUpdateMap[nvId][field] = tbId;
+  });
+
+  Object.entries(nvUpdateMap).forEach(([nvId, fieldMap]) => {
+    const nv = daNhanVien.find(n => String(n.id) === nvId);
+    if (!nv) return;
+    Object.entries(fieldMap).forEach(([field, tbId]) => {
+      // Tìm dmEntry theo tbId, nếu không thấy thì tìm theo nhom (quần áo/giày có nhiều cỡ)
+      let dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
+      if (!dmEntry) {
+        const tbItem = getTB(tbId);
+        if (tbItem && tbItem.nhom) {
+          const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
+          dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+        }
+      }
+      if (!dmEntry) return;
+      const schedDate = tinhThangCapTiepTheo(nv, dmEntry);
+      if (!schedDate || schedDate === 'quarterly') return;
+      nv[field] = schedDate;
+      updatedCount++;
+    });
+    if (!nv.loaiNV || nv.loaiNV === 'moi') nv.loaiNV = 'cu';
+  });
+
+  if (updatedCount === 0) {
+    showToast('⚠️ Không tìm thấy dữ liệu cần cập nhật trong phiếu này.', 'warning');
+    return;
+  }
+
+  try {
+    saveData('nhanvien', daNhanVien);
+    await sheetPost('nhanvien', daNhanVien);
+    showToast(`✅ Đã cập nhật lại ${updatedCount} trường ngày cấp cho phiếu ${r.quyStr} — ${r.donVi}!`, 'success');
+  } catch(e) {
+    showToast('❌ Lỗi khi lưu: ' + e.message, 'error');
+  }
+}
+
+/** Xuất phiếu yêu cầu cấp phát cho nhân viên mới (cấp lần đầu) — file Word, cùng mẫu QT-KTVT-05/BM-03 */
+function printPhieuNVMoi() {
+  const ten = (document.getElementById('nv-ten')?.value || '').trim();
+  const ma = (document.getElementById('nv-ma')?.value || '').trim();
+  const chucDanh = document.getElementById('nv-chucdanh')?.value || '';
+  const boPhan = document.getElementById('nv-bophan')?.value || '';
+  const coQuanAo = document.getElementById('nv-co-quanao')?.value || '';
+  const coGiay = document.getElementById('nv-co-giay')?.value || '';
+  const isNu = document.getElementById('nv-nu')?.checked || false;
+  const thangM = document.getElementById('nv-moi-thang-m')?.value || '';
+  const thangY = document.getElementById('nv-moi-thang-y')?.value || '';
+
+  if (!chucDanh) {
+    showToast('⚠️ Vui lòng chọn Chức danh trước khi xuất phiếu.', 'warning');
+    return;
+  }
+  if (!ten) {
+    showToast('⚠️ Vui lòng nhập Họ và tên trước khi xuất phiếu.', 'warning');
+    return;
+  }
+
+  // Nhãn tháng/năm hiển thị trên phiếu
+  const thangCapStr = (thangM && thangY) ? `tháng ${parseInt(thangM)} năm ${thangY}`
+                    : (thangM ? `tháng ${parseInt(thangM)}` : (thangY || ''));
+
+  // Tạo đối tượng NV tạm để dùng với getTBSized
+  const tempNv = { ten, ma, chucDanh, boPhan, coQuanAo, coGiay, nu: isNu };
+
+  // Lấy tất cả định mức của chức danh này
+  const dmList = daDinhMuc.filter(d => d.chucDanh === chucDanh);
+  if (dmList.length === 0) {
+    showToast('⚠️ Không có định mức cho chức danh này.', 'warning');
+    return;
+  }
+
+  // Tính số lượng cấp lần đầu cho từng trang bị
+  const allRows = [];
+  dmList.forEach(d => {
+    const baseTB = getTB(d.trangBiId);
+    if (!baseTB) return;
+    const tb = getTBSized(baseTB, tempNv);
+    if (!tb) return;
+
+    const chuKy = Number(d.chuKy) || 1;
+    const soLuongDM = Number(d.soLuong) || 1;
+    let soLuong = 0;
+
+    if (tb.loai === 'Bảo vệ hô hấp') {
+      soLuong = Math.ceil(3 / chuKy) * soLuongDM;
+    } else if (tb.loai === 'Bảo vệ tay') {
+      soLuong = (tb.nhom === 'Găng tay vải bạt')
+        ? Math.ceil(3 / chuKy) * soLuongDM
+        : 2;
+    } else if (tb.loai === 'Quần áo') {
+      soLuong = (tb.nhom === 'Áo mưa') ? 1 : 2;
+    } else if (tb.loai === 'Giày dép') {
+      soLuong = 2;
+    } else if (tb.loai === 'Mũ nón') {
+      soLuong = 1;
+    } else if (tb.loai === 'Bảo vệ mắt/mặt') {
+      soLuong = 2;
+    } else if (tb.loai === 'Khác') {
+      soLuong = 2;
+    } else {
+      soLuong = soLuongDM;
+    }
+
+    allRows.push({ ma: tb.ma || '', ten: tb.ten, donVi: tb.donVi || '', soLuong });
+  });
+
+  if (allRows.length === 0) {
+    showToast('⚠️ Không tìm thấy trang bị để xuất phiếu.', 'warning');
+    return;
+  }
+
+  const td = `border:1px solid #000;padding:4px 6px;vertical-align:middle;`;
+  const th = td + `text-align:center;background:#efefef;font-weight:bold;`;
+
+  const dataRows = allRows.map((r, i) => `
+    <tr>
+      <td style="${td}text-align:center;">${i + 1}</td>
+      <td style="${td}">${r.ma}</td>
+      <td style="${td}">${r.ten}</td>
+      <td style="${td}text-align:center;">${r.donVi}</td>
+      <td style="${td}text-align:center;">${r.soLuong}</td>
+      <td style="${td}"></td>
+      <td style="${td}"></td>
+    </tr>`).join('');
+
+  const blankRow = `<tr>${'<td style="' + td + '">&nbsp;</td>'.repeat(7)}</tr>`;
+
+  const nvInfoLine = [
+    ten ? `<strong>Họ và tên:</strong> ${ten}` : '',
+    ma  ? `<strong>Danh số:</strong> ${ma}` : '',
+    `<strong>Chức danh:</strong> ${chucDanh}`,
+    boPhan ? `<strong>Đơn vị:</strong> ${boPhan}` : '',
+    thangCapStr ? `<strong>Tháng vào làm:</strong> ${thangCapStr}` : '',
+  ].filter(Boolean).join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:w="urn:schemas-microsoft-com:office:word"
+    xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<style>
+  @page { margin:2cm 2cm 2cm 2.5cm; size:A4 portrait; }
+  body { font-family:"Times New Roman",serif; font-size:12pt; color:#000; }
+  table { border-collapse:collapse; }
+  p { margin:0; }
+</style>
+</head>
+<body>
+
+<!-- === Tiêu đề tài liệu === -->
+<table style="width:100%;margin-bottom:10pt;">
+  <tr>
+    <td rowspan="3" style="${td}width:62%;text-align:center;font-size:11pt;">
+      <strong>XN DVC&amp;CƯVTTB</strong><br>
+      <strong>QUY TRÌNH</strong><br>
+      CẤP PHÁT TRANG BỊ BẢO HỘ LAO ĐỘNG VÀ PHƯƠNG TIỆN BẢO HỘ CÁ NHÂN
+    </td>
+    <td style="${td}text-align:center;font-weight:bold;">QT-KTVT-05/BM-03</td>
+  </tr>
+  <tr>
+    <td style="${td}">Lần ban hành: 01</td>
+  </tr>
+  <tr>
+    <td style="${td}">Ngày hiệu lực: 01.02.2022</td>
+  </tr>
+</table>
+
+<p style="margin:8pt 0 4pt;">${nvInfoLine}</p>
+<p style="margin:0 0 14pt;font-style:italic;font-size:11pt;color:#333;">
+  (Cấp phát trang bị bảo hộ lao động cho nhân viên mới vào làm việc — cấp lần đầu)
+</p>
+
+<!-- === Thỏa thuận / Phê duyệt === -->
+<table style="width:100%;margin-bottom:12pt;">
+  <tr>
+    <td style="width:50%;text-align:center;padding:4pt 8pt 36pt;vertical-align:top;">
+      <strong>THỎA THUẬN</strong><br><em>Phó giám đốc</em>
+    </td>
+    <td style="width:50%;text-align:center;padding:4pt 8pt 36pt;vertical-align:top;">
+      <strong>PHÊ DUYỆT</strong><br><em>Giám đốc XN DVC&amp;CƯVTTB</em>
+    </td>
+  </tr>
+</table>
+
+<!-- === Tên phiếu === -->
+<p style="text-align:center;font-weight:bold;font-size:14pt;margin-bottom:2pt;">PHIẾU YÊU CẦU CẤP BẢO HỘ LAO ĐỘNG</p>
+<p style="text-align:center;font-weight:bold;font-size:12pt;margin-bottom:14pt;">Nhân viên mới${thangCapStr ? ' — ' + thangCapStr : ''}</p>
+
+<!-- === Bảng trang bị === -->
+<table style="width:100%;">
+  <thead>
+    <tr>
+      <th rowspan="2" style="${th}width:5%;">STT</th>
+      <th rowspan="2" style="${th}width:14%;">Mã vật tư</th>
+      <th rowspan="2" style="${th}width:37%;">Tên vật tư</th>
+      <th rowspan="2" style="${th}width:9%;">Đơn vị tính</th>
+      <th colspan="2" style="${th}width:19%;">Số lượng</th>
+      <th rowspan="2" style="${th}width:16%;">Ghi chú</th>
+    </tr>
+    <tr>
+      <th style="${th}">Yêu cầu</th>
+      <th style="${th}">Thực xuất</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${dataRows}
+    ${blankRow}
+    ${blankRow}
+  </tbody>
+</table>
+
+<!-- === Chữ ký === -->
+<table style="width:100%;margin-top:26pt;">
+  <tr>
+    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Trưởng phòng KTVT</strong></td>
+    <td style="width:34%;text-align:center;padding:4pt 4pt 52pt;"><strong>Thủ kho</strong></td>
+    <td style="width:33%;text-align:center;padding:4pt 4pt 52pt;"><strong>Lãnh đạo đơn vị</strong></td>
+  </tr>
+  <tr>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+    <td style="text-align:center;padding:2pt;">&nbsp;</td>
+  </tr>
+</table>
+<table style="width:100%;margin-top:12pt;">
+  <tr>
+    <td style="width:34%;padding:4pt 4pt 52pt;"><strong>Người phụ trách đơn vị</strong></td>
+    <td style="width:66%;"></td>
+  </tr>
+  <tr>
+    <td style="padding:2pt;">&nbsp;</td>
+    <td></td>
+  </tr>
+</table>
+
+</body></html>`;
+
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const nameSlug = ten.replace(/\s+/g, '-');
+  a.download = `phieu-cap-nv-moi-${nameSlug}.doc`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast(`✅ Đã xuất phiếu Word cho nhân viên mới — ${ten}!`, 'success');
 }
 
 async function approvePhieuRequest(id) {
