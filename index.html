@@ -916,7 +916,7 @@
           📋 Phê duyệt nhân sự
         </div>
         <div class="admin-tab" id="admin-tab-phieu" onclick="adminSwitchTab('phieu')">
-          📄 Phê duyệt phiếu BHLĐ
+          📄 Phê duyệt phiếu yêu cầu
           <span id="admin-phieu-badge" style="display:none;margin-left:6px;background:var(--accent);color:white;border-radius:10px;font-size:11px;font-weight:700;padding:1px 7px;"></span>
         </div>
         <div class="admin-tab" id="admin-tab-accounts" onclick="adminSwitchTab('accounts')">
@@ -5759,6 +5759,110 @@ function _buildPhieuCard(r, readonly) {
     if (trackedLoais.includes(tb.loai)) trackedCount++;
   });
 
+  // Build summary table (tổng hợp theo trang bị) — dùng computeQuyData để có định mức đúng
+  const phieuSummary = _computePhieuSummary(r);
+  const summaryRows = phieuSummary.map((s, i) => {
+    const rowBg = i % 2 === 0 ? 'white' : 'var(--bg)';
+    return `<tr style="background:${rowBg};">
+      <td style="text-align:center;">${i + 1}</td>
+      <td>${s.ten}</td>
+      <td style="text-align:center;">${s.donVi || '—'}</td>
+      <td style="text-align:center;">${s.dinhMuc}</td>
+      <td style="text-align:center;font-weight:600;color:var(--primary);">${s.thucTe || 0}</td>
+    </tr>`;
+  });
+
+  // Build detail table (chi tiết từng nhân viên)
+  const detailRows = [];
+  const nvGroupMap = {};
+  Object.entries(snapshot).forEach(([key, val]) => {
+    const [nvId, tbId] = key.split('_');
+    if (!nvGroupMap[nvId]) nvGroupMap[nvId] = [];
+    nvGroupMap[nvId].push({ tbId, val });
+  });
+  let stt = 0;
+  Object.entries(nvGroupMap).forEach(([nvId, items]) => {
+    const nv = daNhanVien.find(n => String(n.id) === String(nvId));
+    const nvName = nv ? nv.hoTen : `NV#${nvId}`;
+    const nvCode = nv ? (nv.maNV || nv.danhSo || '—') : '—';
+    const nvTitle = nv ? (nv.chucDanh || '—') : '—';
+    items.forEach(({ tbId, val }) => {
+      stt++;
+      const tb = getTB(parseInt(tbId));
+      const tbName = tb ? tb.ten : `TB#${tbId}`;
+      const dmEntry = (nv && tb) ? daDinhMuc.find(d => d.trangBiId === parseInt(tbId) && d.chucDanh === nv.chucDanh) : null;
+      const dmVal = dmEntry ? dmEntry.soLuong : '—';
+      const ttVal = (val.thucTe !== '' && val.thucTe !== undefined) ? val.thucTe : '—';
+      const ghiChu = val.ghiChu || '';
+      const rowBg = stt % 2 === 0 ? 'var(--bg)' : 'white';
+      detailRows.push(`<tr style="background:${rowBg};">
+        <td style="text-align:center;">${stt}</td>
+        <td>${nvName}</td>
+        <td style="text-align:center;">${nvCode}</td>
+        <td>${nvTitle}</td>
+        <td>${tbName}</td>
+        <td style="text-align:center;">${dmVal}</td>
+        <td style="text-align:center;font-weight:600;color:var(--primary);">${ttVal}</td>
+        <td>${ghiChu}</td>
+      </tr>`);
+    });
+  });
+
+  const thStyle = 'padding:7px 8px;white-space:nowrap;';
+  const hasData = summaryRows.length > 0 || detailRows.length > 0;
+
+  const detailTableEl = hasData ? `
+    <div id="phieu-detail-${r.id}" style="display:none;margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:6px;">
+          <button id="tab-tong-hop-${r.id}" onclick="switchPhieuTab('${r.id}','tonghop')"
+            style="padding:5px 14px;font-size:12px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:white;cursor:pointer;font-weight:600;">
+            📊 Tổng hợp
+          </button>
+          <button id="tab-chi-tiet-${r.id}" onclick="switchPhieuTab('${r.id}','chitiet')"
+            style="padding:5px 14px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:white;color:var(--text);cursor:pointer;">
+            📋 Chi tiết
+          </button>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="printPhieuRequest('${r.id}')" style="font-size:12px;padding:4px 14px;">🖨️ In phiếu</button>
+      </div>
+
+      <!-- BẢNG TỔNG HỢP -->
+      <div id="panel-tonghop-${r.id}" style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <thead>
+            <tr style="background:var(--primary);color:white;">
+              <th style="${thStyle}text-align:center;">STT</th>
+              <th style="${thStyle}text-align:left;">Tên trang bị BHLĐ</th>
+              <th style="${thStyle}text-align:center;">ĐVT</th>
+              <th style="${thStyle}text-align:center;">Tổng định mức</th>
+              <th style="${thStyle}text-align:center;">Tổng thực tế</th>
+            </tr>
+          </thead>
+          <tbody>${summaryRows.join('')}</tbody>
+        </table>
+      </div>
+
+      <!-- BẢNG CHI TIẾT -->
+      <div id="panel-chitiet-${r.id}" style="display:none;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <thead>
+            <tr style="background:var(--primary);color:white;">
+              <th style="${thStyle}text-align:center;">STT</th>
+              <th style="${thStyle}text-align:left;">Họ và tên</th>
+              <th style="${thStyle}text-align:center;">Danh số</th>
+              <th style="${thStyle}text-align:left;">Chức danh</th>
+              <th style="${thStyle}text-align:left;">Trang bị BHLĐ</th>
+              <th style="${thStyle}text-align:center;">Định mức</th>
+              <th style="${thStyle}text-align:center;">Thực tế</th>
+              <th style="${thStyle}text-align:left;">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>${detailRows.join('')}</tbody>
+        </table>
+      </div>
+    </div>` : '';
+
   const noteEl = r.status === 'pending' ? `
     <div style="margin-top:12px;">
       <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px;">💬 Ghi chú (hiển thị cho đơn vị khi trả về):</label>
@@ -5782,13 +5886,204 @@ function _buildPhieuCard(r, readonly) {
       </div>
       ${badge}
     </div>
-    <div style="display:flex;gap:20px;margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:7px;flex-wrap:wrap;">
+    <div style="display:flex;gap:20px;margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:7px;flex-wrap:wrap;align-items:center;">
       <div style="font-size:13px;">👷 Nhân viên được cấp: <strong>${nvSet.size}</strong></div>
       <div style="font-size:13px;color:var(--primary);">📋 Dòng cần cập nhật ngày: <strong>${trackedCount}</strong></div>
+      ${hasData ? `<button class="btn btn-outline btn-sm" onclick="togglePhieuDetail('${r.id}')" id="btn-detail-${r.id}" style="font-size:12px;padding:4px 12px;margin-left:auto;">👁️ Xem phiếu</button>` : ''}
     </div>
+    ${detailTableEl}
     ${adminNoteEl}
     ${noteEl}
   </div>`;
+}
+
+/**
+ * Tính tổng hợp cho phiếu: dinhMuc lấy từ computeQuyData (đúng với bảng đơn vị thấy),
+ * thucTe lấy từ r.snapshot (dữ liệu lúc gửi).
+ */
+function _computePhieuSummary(r) {
+  const { rows } = computeQuyData(r.quyStr, r.donVi);
+  const snapshot = r.snapshot || {};
+  const map = {};
+  rows.forEach(row => {
+    row.items.forEach(it => {
+      if (!map[it.tbId]) map[it.tbId] = { ten: it.ten, ma: it.ma || '', donVi: it.donVi, dinhMuc: 0, thucTe: 0 };
+      map[it.tbId].dinhMuc += Number(it.soLuong) || 0;
+      const saved = snapshot[`${row.nv.id}_${it.tbId}`];
+      if (saved && saved.thucTe !== '' && saved.thucTe !== undefined) {
+        map[it.tbId].thucTe += parseFloat(saved.thucTe) || 0;
+      }
+    });
+  });
+  return Object.values(map).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+}
+
+function togglePhieuDetail(id) {
+  const el = document.getElementById(`phieu-detail-${id}`);
+  const btn = document.getElementById(`btn-detail-${id}`);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.textContent = isHidden ? '🙈 Ẩn' : '👁️ Xem phiếu';
+}
+
+function switchPhieuTab(id, tab) {
+  const thPanel = document.getElementById(`panel-tonghop-${id}`);
+  const ctPanel = document.getElementById(`panel-chitiet-${id}`);
+  const thBtn   = document.getElementById(`tab-tong-hop-${id}`);
+  const ctBtn   = document.getElementById(`tab-chi-tiet-${id}`);
+  if (!thPanel || !ctPanel) return;
+  const isTongHop = tab === 'tonghop';
+  thPanel.style.display = isTongHop ? 'block' : 'none';
+  ctPanel.style.display = isTongHop ? 'none'  : 'block';
+  if (thBtn) { thBtn.style.background = isTongHop ? 'var(--primary)' : 'white'; thBtn.style.color = isTongHop ? 'white' : 'var(--text)'; thBtn.style.fontWeight = isTongHop ? '600' : 'normal'; }
+  if (ctBtn) { ctBtn.style.background = isTongHop ? 'white' : 'var(--primary)'; ctBtn.style.color = isTongHop ? 'var(--text)' : 'white'; ctBtn.style.fontWeight = isTongHop ? 'normal' : '600'; }
+}
+
+function printPhieuRequest(id) {
+  const r = _phieuRequestList.find(x => x.id === id);
+  if (!r) return;
+  const snapshot = r.snapshot || {};
+  const ts = new Date(r.timestamp).toLocaleString('vi-VN');
+  const approvedTs = r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi-VN') : '';
+  const statusMap = { pending: 'Chờ duyệt', approved: 'Đã duyệt', returned: 'Trả về đơn vị' };
+  const adminNoteHtml = r.adminNote ? `<p style="margin:4px 0;"><strong>Ghi chú:</strong> ${r.adminNote}</p>` : '';
+
+  // ---- BẢNG TỔNG HỢP — dùng _computePhieuSummary để định mức khớp với bảng đơn vị ----
+  const phieuSummary = _computePhieuSummary(r);
+  let summaryTableRows = '';
+  phieuSummary.forEach((s, i) => {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    summaryTableRows += `<tr style="background:${bg};">
+      <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${i + 1}</td>
+      <td style="border:1px solid #dee2e6;padding:6px 8px;">${s.ten}</td>
+      <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${s.donVi || '—'}</td>
+      <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${s.dinhMuc}</td>
+      <td style="text-align:center;font-weight:600;border:1px solid #dee2e6;padding:6px 8px;">${s.thucTe || 0}</td>
+    </tr>`;
+  });
+
+  // ---- BẢNG CHI TIẾT ----
+  const nvGroupMap = {};
+  Object.entries(snapshot).forEach(([key, val]) => {
+    const [nvId, tbId] = key.split('_');
+    if (!nvGroupMap[nvId]) nvGroupMap[nvId] = [];
+    nvGroupMap[nvId].push({ tbId, val });
+  });
+  let stt = 0;
+  let detailTableRows = '';
+  Object.entries(nvGroupMap).forEach(([nvId, items]) => {
+    const nv = daNhanVien.find(n => String(n.id) === String(nvId));
+    const nvName = nv ? nv.hoTen : `NV#${nvId}`;
+    const nvCode = nv ? (nv.maNV || nv.danhSo || '—') : '—';
+    const nvTitle = nv ? (nv.chucDanh || '—') : '—';
+    items.forEach(({ tbId, val }) => {
+      stt++;
+      const tb = getTB(parseInt(tbId));
+      const tbName = tb ? tb.ten : `TB#${tbId}`;
+      const dmEntry = (nv && tb) ? daDinhMuc.find(d => d.trangBiId === parseInt(tbId) && d.chucDanh === nv.chucDanh) : null;
+      const dmVal = dmEntry ? dmEntry.soLuong : '—';
+      const ttVal = (val.thucTe !== '' && val.thucTe !== undefined) ? val.thucTe : '—';
+      const ghiChu = val.ghiChu || '';
+      const bg = stt % 2 === 0 ? '#f8f9fa' : '#ffffff';
+      detailTableRows += `<tr style="background:${bg};">
+        <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${stt}</td>
+        <td style="border:1px solid #dee2e6;padding:6px 8px;">${nvName}</td>
+        <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${nvCode}</td>
+        <td style="border:1px solid #dee2e6;padding:6px 8px;">${nvTitle}</td>
+        <td style="border:1px solid #dee2e6;padding:6px 8px;">${tbName}</td>
+        <td style="text-align:center;border:1px solid #dee2e6;padding:6px 8px;">${dmVal}</td>
+        <td style="text-align:center;font-weight:600;border:1px solid #dee2e6;padding:6px 8px;">${ttVal}</td>
+        <td style="border:1px solid #dee2e6;padding:6px 8px;">${ghiChu}</td>
+      </tr>`;
+    });
+  });
+
+  const thHead = `<tr style="background:#003087;color:white;">
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">STT</th>
+    <th style="padding:8px;border:1px solid #003087;white-space:nowrap;">Tên trang bị BHLĐ</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">ĐVT</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">Tổng định mức</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">Tổng thực tế</th>
+  </tr>`;
+  const ctHead = `<tr style="background:#003087;color:white;">
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">STT</th>
+    <th style="padding:8px;border:1px solid #003087;white-space:nowrap;">Họ và tên</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">Danh số</th>
+    <th style="padding:8px;border:1px solid #003087;white-space:nowrap;">Chức danh</th>
+    <th style="padding:8px;border:1px solid #003087;white-space:nowrap;">Trang bị BHLĐ</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">Định mức</th>
+    <th style="padding:8px;border:1px solid #003087;text-align:center;white-space:nowrap;">Thực tế</th>
+    <th style="padding:8px;border:1px solid #003087;white-space:nowrap;">Ghi chú</th>
+  </tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Phiếu BHLĐ — ${r.donVi} — ${r.quyStr}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 0; padding: 20px; }
+    h2 { text-align: center; font-size: 17px; margin-bottom: 4px; text-transform: uppercase; }
+    h3 { font-size: 14px; margin: 20px 0 6px; color: #003087; border-bottom: 2px solid #003087; padding-bottom: 4px; }
+    .subtitle { text-align: center; font-size: 12px; color: #555; margin-bottom: 14px; }
+    .info-block { border: 1px solid #ccc; border-radius: 6px; padding: 8px 14px; margin-bottom: 14px; background: #f9f9f9; display:flex; flex-wrap:wrap; gap:6px 24px; }
+    .info-block p { margin: 2px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .footer { margin-top: 30px; display: flex; justify-content: space-between; }
+    .footer div { text-align: center; width: 30%; }
+    .footer .sign-name { font-weight: bold; margin-top: 48px; }
+    .print-btn { text-align:center; margin-top:20px; }
+    @media print {
+      body { padding: 8px; }
+      .print-btn { display: none !important; }
+      h3 { page-break-before: auto; }
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Phiếu yêu cầu cấp phát bảo hộ lao động</h2>
+  <p class="subtitle">Xí nghiệp Dịch vụ Cảng và Cung ứng vật tư thiết bị — Vietsovpetro</p>
+
+  <div class="info-block">
+    <p><strong>Đơn vị:</strong> ${r.donVi || '—'}</p>
+    <p><strong>Kỳ báo cáo:</strong> ${r.quyStr || '—'}</p>
+    <p><strong>Người gửi:</strong> ${r.email || '—'}</p>
+    <p><strong>Thời gian gửi:</strong> ${ts}</p>
+    <p><strong>Trạng thái:</strong> ${statusMap[r.status] || r.status}${approvedTs ? ' — ' + approvedTs : ''}</p>
+    ${adminNoteHtml}
+  </div>
+
+  <!-- PHIẾU TỔNG HỢP -->
+  <h3>📊 I. TỔNG HỢP SỐ LƯỢNG TRANG BỊ</h3>
+  <table>
+    <thead>${thHead}</thead>
+    <tbody>${summaryTableRows}</tbody>
+  </table>
+
+  <!-- PHIẾU CHI TIẾT -->
+  <h3 class="page-break">📋 II. CHI TIẾT TỪNG NHÂN VIÊN</h3>
+  <table>
+    <thead>${ctHead}</thead>
+    <tbody>${detailTableRows}</tbody>
+  </table>
+
+  <div class="footer">
+    <div><p>Người lập phiếu</p><p class="sign-name">${r.email || ''}</p></div>
+    <div><p>Kho / Cấp phát</p><p class="sign-name">&nbsp;</p></div>
+    <div><p>Lãnh đạo đơn vị</p><p class="sign-name">&nbsp;</p></div>
+  </div>
+
+  <div class="print-btn">
+    <button onclick="window.print()" style="padding:8px 28px;font-size:14px;background:#003087;color:white;border:none;border-radius:6px;cursor:pointer;">🖨️ In phiếu</button>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  window.open(URL.createObjectURL(blob), '_blank');
 }
 
 async function approvePhieuRequest(id) {
