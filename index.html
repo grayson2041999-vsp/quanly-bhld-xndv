@@ -335,6 +335,7 @@
           <option value="Xưởng sửa chữa">Xưởng sửa chữa</option>
           <option value="Đội xe VTHH&PTTBCD">Đội xe VTHH&PTTBCD</option>
           <option value="Đội xe VCHK">Đội xe VCHK</option>
+          <option value="Bộ máy điều hành">Bộ máy điều hành</option>
         </select>
       </div>
       <div id="reg-error" class="login-alert error"></div>
@@ -426,6 +427,9 @@
   </div>
   <div class="nav-item" onclick="showPage('ton-kho')">
     <span class="nav-icon">📦</span> Tồn kho
+  </div>
+  <div class="nav-item" id="nav-nhu-cau" onclick="showPage('nhu-cau')">
+    <span class="nav-icon">🛒</span> Nhu cầu mua sắm
   </div>
   <div class="nav-item" onclick="showPage('huong-dan')">
     <span class="nav-icon">📖</span> Hướng dẫn sử dụng
@@ -567,6 +571,7 @@
             <option value="Xưởng sửa chữa">Xưởng sửa chữa</option>
             <option value="Đội xe VTHH&PTTBCD">Đội xe VTHH&PTTBCD</option>
             <option value="Đội xe VCHK">Đội xe VCHK</option>
+          <option value="Bộ máy điều hành">Bộ máy điều hành</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -1042,6 +1047,37 @@
     <div id="tk-panel-xuat"    style="padding-top:16px;display:none;"></div>
   </div>
 
+  <!-- ===== TRANG NHU CẦU MUA SẮM ===== -->
+  <div id="page-nhu-cau" class="page">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h2>🛒 Nhu cầu mua sắm</h2>
+      <button id="btn-export-nhucau" class="btn btn-outline" onclick="exportNhuCauExcel()"
+        style="display:none;">⬇️ Tải Excel</button>
+    </div>
+
+    <!-- Bộ chọn quý -->
+    <div style="background:#f8f9fa;border-radius:10px;padding:16px 20px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Quý bắt đầu</label>
+        <select id="nhucau-quy-start" style="min-width:140px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+          <option value="">-- Chọn quý --</option>
+        </select>
+      </div>
+      <div style="padding-bottom:2px;color:#666;font-size:13px;line-height:1.6;">
+        → Hệ thống sẽ tính nhu cầu cho <strong>4 quý liên tiếp</strong> từ quý được chọn
+      </div>
+      <button class="btn btn-primary" onclick="tinhNhuCau()" style="padding:8px 20px;font-size:13px;">
+        📊 Tính nhu cầu
+      </button>
+    </div>
+
+    <!-- Kết quả: tiêu đề 4 quý đang xét -->
+    <div id="nhucau-quy-label" style="display:none;margin-bottom:12px;font-size:14px;color:var(--primary);font-weight:600;"></div>
+
+    <!-- Bảng kết quả -->
+    <div id="nhucau-result" style="overflow-x:auto;"></div>
+  </div>
+
   <!-- ===== TRANG TÀI KHOẢN ===== -->
   <!-- ============================
        TRANG: THEO DÕI YÊU CẦU
@@ -1221,22 +1257,6 @@
         <label>Chức danh *</label>
         <select id="nv-chucdanh" onchange="toggleQAHan()">
           <option value="">-- Chọn chức danh --</option>
-          <option value="Lãnh đạo đơn vị">Lãnh đạo đơn vị</option>
-          <option value="Chuyên viên / Kỹ sư">Chuyên viên / Kỹ sư</option>
-          <option value="Thuyền trưởng / Đốc công / KTV">Thuyền trưởng / Đốc công / KTV</option>
-          <option value="Chuyên viên cơ khí / Kỹ sư cơ khí">Chuyên viên cơ khí / Kỹ sư cơ khí</option>
-          <option value="Chủ nhiệm kho">Chủ nhiệm kho</option>
-          <option value="Chủ nhiệm kho hoá chất">Chủ nhiệm kho hoá chất</option>
-          <option value="Thợ bơm nước – móc cáp / Thủy thủ bờ – móc cáp / Thợ máy nén khí – móc cáp">Thợ bơm nước – móc cáp / Thủy thủ bờ – móc cáp / Thợ máy nén khí – móc cáp</option>
-          <option value="Thợ móc cáp / Thợ móc cáp kiêm lái cẩu tàu / Thợ móc cáp kiêm lái xe nâng">Thợ móc cáp / Thợ móc cáp kiêm lái cẩu tàu / Thợ móc cáp kiêm lái xe nâng</option>
-          <option value="Thợ CAM – móc cáp">Thợ CAM – móc cáp</option>
-          <option value="Thợ lái cẩu chân đế ở cảng / Thợ vận hành cần trục – móc cáp">Thợ lái cẩu chân đế ở cảng / Thợ vận hành cần trục – móc cáp</option>
-          <option value="Thợ điện">Thợ điện</option>
-          <option value="Thợ sửa chữa ô tô">Thợ sửa chữa ô tô</option>
-          <option value="Thợ hàn">Thợ hàn</option>
-          <option value="Lái xe nâng, tải, đầu kéo, cần trục bánh lốp, xe chuyên dụng">Lái xe nâng, tải, đầu kéo, cần trục bánh lốp, xe chuyên dụng</option>
-          <option value="Lái xe con, xe buýt">Lái xe con, xe buýt</option>
-          <option value="Thợ may mui bạt">Thợ may mui bạt</option>
         </select>
       </div>
       <div class="form-group">
@@ -1248,6 +1268,7 @@
           <option value="Xưởng sửa chữa">Xưởng sửa chữa</option>
           <option value="Đội xe VTHH&PTTBCD">Đội xe VTHH&PTTBCD</option>
           <option value="Đội xe VCHK">Đội xe VCHK</option>
+          <option value="Bộ máy điều hành">Bộ máy điều hành</option>
         </select>
       </div>
       <div class="form-group">
@@ -1753,13 +1774,13 @@ const DEFAULT_DANH_MUC = [
 // Định mức cấp phát chuẩn theo chức danh (chuKy = số tháng/lần cấp)
 const DEFAULT_DINH_MUC = [
   // Lãnh đạo đơn vị
-  { id:1,  chucDanh:'Lãnh đạo đơn vị', trangBiId:1,  soLuong:1, chuKy:12,    canCu:'' },
-  { id:2,  chucDanh:'Lãnh đạo đơn vị', trangBiId:4,  soLuong:1, chuKy:12,    canCu:'' },
-  { id:3,  chucDanh:'Lãnh đạo đơn vị', trangBiId:7,  soLuong:1, chuKy:18,    canCu:'' },
-  { id:4,  chucDanh:'Lãnh đạo đơn vị', trangBiId:9,  soLuong:1, chuKy:6,     canCu:'' },
-  { id:5,  chucDanh:'Lãnh đạo đơn vị', trangBiId:10, soLuong:1, chuKy:1,     canCu:'' },
-  { id:6,  chucDanh:'Lãnh đạo đơn vị', trangBiId:13, soLuong:1, chuKy:1,     canCu:'' },
-  { id:7,  chucDanh:'Lãnh đạo đơn vị', trangBiId:14, soLuong:1, chuKy:12,    canCu:'' },
+  { id:1,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:1,  soLuong:1, chuKy:12,    canCu:'' },
+  { id:2,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:4,  soLuong:1, chuKy:12,    canCu:'' },
+  { id:3,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:7,  soLuong:1, chuKy:18,    canCu:'' },
+  { id:4,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:9,  soLuong:1, chuKy:6,     canCu:'' },
+  { id:5,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:10, soLuong:1, chuKy:1,     canCu:'' },
+  { id:6,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:13, soLuong:1, chuKy:1,     canCu:'' },
+  { id:7,  chucDanh:'Lãnh đạo đơn vị sản xuất', trangBiId:14, soLuong:1, chuKy:12,    canCu:'' },
   // Chuyên viên / Kỹ sư
   { id:8,  chucDanh:'Chuyên viên / Kỹ sư', trangBiId:1,  soLuong:1, chuKy:12, canCu:'' },
   { id:9,  chucDanh:'Chuyên viên / Kỹ sư', trangBiId:4,  soLuong:1, chuKy:12, canCu:'' },
@@ -1940,6 +1961,12 @@ daNhanVien = daNhanVien.map(n => ({
   gioiTinh: 'nam',   // mặc định nam cho NV chưa có trường này
   ...n
 }));
+// Migration: đổi tên chức danh cũ → mới
+daNhanVien = daNhanVien.map(n =>
+  n.chucDanh === 'Lãnh đạo đơn vị'
+    ? { ...n, chucDanh: 'Lãnh đạo đơn vị sản xuất' }
+    : n
+);
 saveData('nhanvien', daNhanVien);
 
 let editingIds = { nv: null, dm: null, dinhmuc: null, nhom: null };
@@ -2013,6 +2040,7 @@ function showPage(page) {
   if (page === 'quan-tri' && _adminLoggedIn) loadPendingList();
   if (page === 'tai-khoan') renderTaiKhoan();
   if (page === 'ton-kho')  renderTonKho();
+  if (page === 'nhu-cau')  initNhuCauPage();
   if (page === 'theo-doi') loadTheoDoiRequests();
 }
 
@@ -2033,6 +2061,7 @@ function updateNavVisibility() {
     // Hiện Theo dõi yêu cầu chỉ khi người dùng đơn vị đã đăng nhập
     navTd.style.display = _currentUnitUser ? '' : 'none';
   }
+  // nav-nhu-cau: hiện với tất cả (không ẩn)
 }
 
 // =====================================================
@@ -2219,7 +2248,7 @@ function renderDashboard() {
 // =====================================================
 //  NHÂN VIÊN
 // =====================================================
-const UNIT_ORDER = ['Cảng biển','Căn cứ Kho - Giao nhận','Xưởng sửa chữa','Đội xe VTHH&PTTBCD','Đội xe VCHK'];
+const UNIT_ORDER = ['Cảng biển','Căn cứ Kho - Giao nhận','Xưởng sửa chữa','Đội xe VTHH&PTTBCD','Đội xe VCHK','Bộ máy điều hành'];
 const ROMAN_NUM  = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
 
 // Icon cho từng đơn vị
@@ -2229,6 +2258,7 @@ const UNIT_ICONS = {
   'Xưởng sửa chữa':         '🔧',
   'Đội xe VTHH&PTTBCD':     '🚛',
   'Đội xe VCHK':             '🚗',
+  'Bộ máy điều hành':        '🏛️',
 };
 
 /** Render 5 nút chọn đơn vị ở trang landing nhân viên */
@@ -2517,6 +2547,7 @@ function openModalNV() {
   document.getElementById('nv-loai-moi').checked = true;
   document.getElementById('nv-moi-thang-m').value = '';
   document.getElementById('nv-moi-thang-y').value = '';
+  _populateChucDanhSelect('');
   toggleLoaiNV();
   toggleQAHan();
   // Khoá đơn vị nếu đang đăng nhập tài khoản đơn vị
@@ -2538,7 +2569,7 @@ function editNV(id) {
   document.getElementById('modal-nv-title').textContent = 'Chỉnh sửa nhân viên';
   document.getElementById('nv-ma').value = n.ma;
   document.getElementById('nv-ten').value = n.ten;
-  document.getElementById('nv-chucdanh').value = n.chucDanh;
+  _populateChucDanhSelect(n.chucDanh);
   const bpEl2 = document.getElementById('nv-bophan');
   bpEl2.value = n.boPhan || '';
   bpEl2.disabled = !!_currentUnitUser; // khoá nếu là tài khoản đơn vị
@@ -2920,6 +2951,22 @@ function _syncChucDanhOrder() {
   const added = allCDs.filter(cd => !kept.includes(cd));
   daChucDanhOrder = [...kept, ...added];
   saveData('chucdarnh-order', daChucDanhOrder);
+  _populateChucDanhSelect(); // cập nhật dropdown sau khi sync
+}
+
+// Điền danh sách chức danh động vào select #nv-chucdanh
+function _populateChucDanhSelect(selectedValue) {
+  const sel = document.getElementById('nv-chucdanh');
+  if (!sel) return;
+  const current = selectedValue !== undefined ? selectedValue : sel.value;
+  sel.innerHTML = '<option value="">-- Chọn chức danh --</option>';
+  daChucDanhOrder.forEach(cd => {
+    const opt = document.createElement('option');
+    opt.value = cd;
+    opt.textContent = cd;
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
 }
 
 function renderTableDinhMuc() {
@@ -3293,7 +3340,7 @@ function computeQuyData(quyStr, filterDonVi) {
       // Gộp vào summary
       const key = tbSized.id;
       if (!summaryMap[key]) {
-        summaryMap[key] = { ten: tbSized.ten, ma: tbSized.ma || '', donVi: tbSized.donVi || tb.donVi, soLuong: 0 };
+        summaryMap[key] = { ten: tbSized.ten, ma: tbSized.ma || '', donVi: tbSized.donVi || tb.donVi, soLuong: 0, tbId: key };
       }
       summaryMap[key].soLuong += soLuong;
     });
@@ -5032,6 +5079,229 @@ function xemChiTietGiaoDich(id) {
     </div>`;
 
   document.getElementById('modal-kho').classList.add('open');
+}
+
+// =====================================================
+//  TRANG NHU CẦU MUA SẮM
+// =====================================================
+
+/** Khởi tạo trang Nhu cầu mua sắm: điền dropdown chọn quý */
+function initNhuCauPage() {
+  const sel = document.getElementById('nhucau-quy-start');
+  if (!sel) return;
+
+  // Tạo danh sách các quý tương lai (từ quý tiếp theo đến 12 quý sau)
+  const curQ = getCurrentQuy();
+  const options = [];
+  let q = _nextQuy(curQ);
+  for (let i = 0; i < 12; i++) {
+    options.push(q);
+    q = _nextQuy(q);
+  }
+
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn quý bắt đầu --</option>';
+  options.forEach(qStr => {
+    const opt = document.createElement('option');
+    opt.value = qStr;
+    opt.textContent = qStr;
+    sel.appendChild(opt);
+  });
+  if (prevVal && options.includes(prevVal)) sel.value = prevVal;
+
+  // Reset kết quả
+  document.getElementById('nhucau-result').innerHTML = '';
+  document.getElementById('nhucau-quy-label').style.display = 'none';
+  document.getElementById('btn-export-nhucau').style.display = 'none';
+}
+
+/**
+ * Tính nhu cầu mua sắm cho 4 quý liên tiếp bắt đầu từ quý được chọn.
+ * Kết quả: mỗi hàng là một trang bị, cột = từng đơn vị + tổng + tồn kho + cần mua thêm.
+ */
+function tinhNhuCau() {
+  if (!_adminLoggedIn) { showToast('Chỉ admin mới được tính nhu cầu mua sắm.', 'error'); return; }
+  const startQ = document.getElementById('nhucau-quy-start').value;
+  if (!startQ) { showToast('Vui lòng chọn quý bắt đầu.', 'error'); return; }
+
+  // Kiểm tra phải sau quý hiện tại
+  const curQ = getCurrentQuy();
+  if (_compareQuy(startQ, curQ) <= 0) {
+    showToast('Quý bắt đầu phải sau quý hiện tại (' + curQ + ').', 'error');
+    return;
+  }
+
+  // 4 quý liên tiếp
+  const quyList = [startQ];
+  for (let i = 1; i < 4; i++) quyList.push(_nextQuy(quyList[i - 1]));
+
+  // Hiện label
+  const labelEl = document.getElementById('nhucau-quy-label');
+  labelEl.textContent = '📅 4 quý tính toán: ' + quyList.join(' → ');
+  labelEl.style.display = '';
+
+  // Tính nhu cầu tổng hợp
+  const data = _computeNhuCauData(quyList);
+
+  if (data.length === 0) {
+    document.getElementById('nhucau-result').innerHTML =
+      '<div style="padding:20px;color:#888;text-align:center;">Không có nhu cầu trang bị nào trong kỳ này.</div>';
+    document.getElementById('btn-export-nhucau').style.display = 'none';
+    return;
+  }
+
+  // Render bảng
+  _renderNhuCauTable(data, quyList);
+  document.getElementById('btn-export-nhucau').style.display = '';
+
+  // Lưu vào biến toàn cục để dùng khi export
+  window._nhucauData = data;
+  window._nhucauQuyList = quyList;
+}
+
+/** So sánh hai chuỗi quý: trả về <0 nếu a trước b, 0 nếu bằng, >0 nếu a sau b */
+function _compareQuy(a, b) {
+  const [qa, ya] = a.split('/');
+  const [qb, yb] = b.split('/');
+  const na = parseInt(ya) * 4 + parseInt(qa.slice(1));
+  const nb = parseInt(yb) * 4 + parseInt(qb.slice(1));
+  return na - nb;
+}
+
+/**
+ * Tính dữ liệu nhu cầu theo từng trang bị x từng đơn vị cho 4 quý.
+ * Trả về array: [{tbId, ten, ma, dvUnit, perUnit:{unit:qty}, tongNhuCau, tonKho, canMua}]
+ */
+function _computeNhuCauData(quyList) {
+  // map: tbId → {ten, ma, dvUnit, perUnit: {unit: qty}}
+  const map = {};
+
+  UNIT_ORDER.forEach(unit => {
+    quyList.forEach(quyStr => {
+      const { summary } = computeQuyData(quyStr, unit);
+      summary.forEach(item => {
+        const key = item.tbId || item.ma || item.ten;
+        if (!map[key]) {
+          map[key] = { tbId: item.tbId, ten: item.ten, ma: item.ma || '', dvUnit: item.donVi, perUnit: {} };
+          UNIT_ORDER.forEach(u => { map[key].perUnit[u] = 0; });
+        }
+        map[key].perUnit[unit] = (map[key].perUnit[unit] || 0) + item.soLuong;
+      });
+    });
+  });
+
+  return Object.values(map)
+    .map(row => {
+      const tongNhuCau = UNIT_ORDER.reduce((s, u) => s + (row.perUnit[u] || 0), 0);
+      const tonKho = daTonKho[row.tbId] || 0;
+      const canMua = Math.max(0, tongNhuCau - tonKho);
+      return { ...row, tongNhuCau, tonKho, canMua };
+    })
+    .filter(row => row.tongNhuCau > 0)
+    .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+}
+
+/** Render bảng kết quả nhu cầu mua sắm */
+function _renderNhuCauTable(data, quyList) {
+  const el = document.getElementById('nhucau-result');
+
+  const unitCols = UNIT_ORDER.map(u =>
+    `<th style="min-width:80px;text-align:center;font-size:12px;white-space:normal;">${UNIT_ICONS[u] || ''} ${u}</th>`
+  ).join('');
+
+  const rows = data.map((row, idx) => {
+    const unitCells = UNIT_ORDER.map(u =>
+      `<td style="text-align:center;">${row.perUnit[u] > 0 ? row.perUnit[u] : '—'}</td>`
+    ).join('');
+
+    const canMuaStyle = row.canMua > 0
+      ? 'color:#c0392b;font-weight:700;'
+      : 'color:#27ae60;font-weight:600;';
+
+    return `<tr>
+      <td style="text-align:center;">${idx + 1}</td>
+      <td style="font-size:12px;color:#666;">${row.ma || '—'}</td>
+      <td>${row.ten}</td>
+      <td style="text-align:center;font-size:12px;">${row.dvUnit || ''}</td>
+      ${unitCells}
+      <td style="text-align:center;font-weight:700;">${row.tongNhuCau}</td>
+      <td style="text-align:center;color:#2980b9;font-weight:600;">${row.tonKho}</td>
+      <td style="text-align:center;${canMuaStyle}">${row.canMua}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <p style="font-size:13px;color:#555;margin-bottom:10px;">
+      Tổng cộng <strong>${data.length}</strong> loại trang bị cần xem xét mua sắm.
+      <span style="color:#c0392b;">Đỏ</span> = cần mua thêm &nbsp;|&nbsp;
+      <span style="color:#27ae60;">Xanh</span> = tồn kho đủ.
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px;">
+      <thead>
+        <tr style="background:var(--primary);color:white;">
+          <th style="width:40px;text-align:center;">STT</th>
+          <th style="min-width:80px;">Mã vật tư</th>
+          <th style="min-width:200px;">Tên trang bị</th>
+          <th style="width:50px;text-align:center;">ĐVT</th>
+          ${unitCols}
+          <th style="min-width:70px;text-align:center;">Tổng nhu cầu</th>
+          <th style="min-width:70px;text-align:center;">Tồn kho</th>
+          <th style="min-width:70px;text-align:center;">Cần mua thêm</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>`;
+
+  // Thêm CSS zebra striping đơn giản
+  el.querySelectorAll('tbody tr').forEach((tr, i) => {
+    if (i % 2 === 1) tr.style.background = '#f8f9fa';
+    tr.querySelectorAll('td').forEach(td => {
+      td.style.borderBottom = '1px solid #eee';
+      td.style.padding = '7px 10px';
+    });
+  });
+  el.querySelectorAll('thead th').forEach(th => {
+    th.style.padding = '8px 10px';
+    th.style.borderBottom = '2px solid rgba(255,255,255,0.3)';
+  });
+}
+
+/** Xuất bảng nhu cầu mua sắm ra file Excel (CSV + BOM) */
+function exportNhuCauExcel() {
+  const data = window._nhucauData;
+  const quyList = window._nhucauQuyList;
+  if (!data || !data.length) { showToast('Chưa có dữ liệu để xuất.', 'error'); return; }
+
+  const header = ['STT','Mã vật tư','Tên trang bị','ĐVT',
+    ...UNIT_ORDER,
+    'Tổng nhu cầu','Tồn kho','Cần mua thêm'];
+
+  const rows = data.map((row, idx) => [
+    idx + 1,
+    row.ma || '',
+    row.ten,
+    row.dvUnit || '',
+    ...UNIT_ORDER.map(u => row.perUnit[u] || 0),
+    row.tongNhuCau,
+    row.tonKho,
+    row.canMua
+  ]);
+
+  const csv = [header, ...rows]
+    .map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+    .join('\r\n');
+
+  const BOM = '﻿';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NhuCauMuaSam_${quyList[0]}_${quyList[3]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 Đã tải file Excel!');
 }
 
 // =====================================================
