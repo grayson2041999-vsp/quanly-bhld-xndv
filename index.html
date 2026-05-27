@@ -589,8 +589,8 @@
               <tr>
                 <th style="text-align:center;min-width:80px;">🧥 Quần áo</th>
                 <th style="text-align:center;min-width:80px;">👟 Giày</th>
-                <th style="text-align:center;min-width:80px;">⛑️ Nón</th>
-                <th style="text-align:center;min-width:80px;">🥽 Kính</th>
+                <th style="text-align:center;min-width:80px;">⛑️ Mũ bảo hộ</th>
+                <th style="text-align:center;min-width:80px;">🥽 Kính bảo hộ</th>
                 <th style="text-align:center;min-width:80px;">🌧️ Áo mưa</th>
                 <th style="text-align:center;min-width:80px;">🔥 Q.Áo TH</th>
               </tr>
@@ -1360,7 +1360,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Tháng cấp nón gần nhất</label>
+              <label>Tháng cấp mũ bảo hộ gần nhất</label>
               <div style="display:flex;gap:6px;align-items:center;">
                 <select id="nv-thang-non-m" style="flex:1;">
                   <option value="">-- Tháng --</option>
@@ -1376,7 +1376,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Tháng cấp kính gần nhất</label>
+              <label>Tháng cấp kính bảo hộ gần nhất</label>
               <div style="display:flex;gap:6px;align-items:center;">
                 <select id="nv-thang-kinh-m" style="flex:1;">
                   <option value="">-- Tháng --</option>
@@ -3985,12 +3985,12 @@ function clearMonthYear(prefix) { setMonthYear(prefix, ''); }
  * Quy tắc:
  *  - Khẩu trang (Bảo vệ hô hấp) & Găng tay (Bảo vệ tay): luôn cấp hàng quý → 'quarterly'
  *  - NV mới: ngày bắt đầu = ngayVaoLam
- *      + Quần áo, Giày, Nón, Kính BH → nhận lần đầu, tiếp theo = start + 2×chuKy
+ *      + Quần áo, Giày, Mũ bảo hộ, Kính bảo hộ → nhận lần đầu, tiếp theo = start + 2×chuKy
  *      + Các trang bị khác → tiếp theo = start + 1×chuKy
  *  - NV cũ: dùng thangCap* đã nhập
- *      + Quần áo → thangCapQuanAo + chuKy
- *      + Giày    → thangCapGiay   + chuKy
- *      + Nón     → thangCapNon    + chuKy
+ *      + Quần áo   → thangCapQuanAo + chuKy
+ *      + Giày      → thangCapGiay   + chuKy
+ *      + Mũ bảo hộ → thangCapNon    + chuKy
  *      + Còn lại → không có thông tin → null
  */
 function tinhThangCapTiepTheo(nv, dmEntry) {
@@ -5970,8 +5970,8 @@ function computePendingDiff(submitted, base) { return computeDiff(submitted, bas
 
 /**
  * Tự động chuyển NV mới → NV cũ và tính tháng cấp khi được admin duyệt vào hệ thống.
- * Quần áo, giày, kính, áo mưa (và quần áo thợ hàn): tháng vào làm + 1 chu kỳ cấp (nhận 2 cái lần đầu).
- * Mũ nón: đúng tháng vào làm (nhận 1 cái, không nhân đôi).
+ * Quần áo, giày, kính bảo hộ, áo mưa (và quần áo thợ hàn): tháng vào làm + 1 chu kỳ cấp (nhận 2 cái lần đầu).
+ * Mũ bảo hộ: đúng tháng vào làm (nhận 1 cái, không nhân đôi).
  */
 function _autoConvertNVMoi(nv) {
   if (nv.loaiNV !== 'moi') return nv;
@@ -7039,7 +7039,7 @@ async function approvePhieuRequest(id) {
   const r = _phieuRequestList.find(x => x.id === id);
   if (!r) return;
   const note = document.getElementById(`phieu-note-${id}`)?.value.trim() || '';
-  if (!confirm(`Chấp thuận phiếu "${r.quyStr}" của "${r.donVi}"?\nHệ thống sẽ tự động cập nhật ngày cấp cho các nhân viên được phát 4 nhóm vật tư (quần áo, giày, nón, kính).`)) return;
+  if (!confirm(`Chấp thuận phiếu "${r.quyStr}" của "${r.donVi}"?\nHệ thống sẽ tự động cập nhật ngày cấp cho các nhân viên được phát 4 nhóm vật tư (quần áo, giày, mũ bảo hộ, kính bảo hộ).`)) return;
 
   const snapshot = r.snapshot || {};
   let updatedCount = 0;
@@ -7433,7 +7433,7 @@ function exportNV_Excel() {
   const headers = [
     'STT', 'Danh số', 'Họ và Tên', 'Chức danh',
     'Cỡ QA', 'Cỡ Giày',
-    'T.cấp Quần áo', 'T.cấp Giày', 'T.cấp Nón', 'T.cấp Kính',
+    'T.cấp Quần áo', 'T.cấp Giày', 'T.cấp Mũ BH', 'T.cấp Kính BH',
     'T.cấp Áo mưa', 'Tháng cấp QA thợ hàn'
   ];
 
@@ -7542,7 +7542,7 @@ function exportNV_PDF() {
   <th style="width:30px;">STT</th>
   <th>Danh số</th><th>Họ và Tên</th><th>Chức danh</th>
   <th>Cỡ QA</th><th>Cỡ Giày</th>
-  <th>T.cấp QA</th><th>T.cấp Giày</th><th>T.cấp Nón</th><th>T.cấp Kính</th>
+  <th>T.cấp QA</th><th>T.cấp Giày</th><th>T.cấp Mũ BH</th><th>T.cấp Kính BH</th>
   <th>T.cấp Áo mưa</th><th>T.cấp QA thợ hàn</th>
 </tr></thead>
 <tbody>${bodyHTML}</tbody>
