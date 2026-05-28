@@ -1059,9 +1059,14 @@
     <div style="background:#f8f9fa;border-radius:10px;padding:16px 20px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
       <div>
         <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Quý bắt đầu</label>
-        <select id="nhucau-quy-start" style="min-width:140px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
-          <option value="">-- Chọn quý --</option>
-        </select>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="nhucau-quy-start" style="min-width:140px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+            <option value="">-- Chọn quý --</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="autoSelectNearestQuy()" title="Tự động chọn chu kỳ hợp lệ gần nhất trong danh sách quý">
+            🔄 Tự động chọn
+          </button>
+        </div>
       </div>
       <div style="padding-bottom:2px;color:#666;font-size:13px;line-height:1.6;">
         → Hệ thống sẽ tính nhu cầu cho <strong>4 quý liên tiếp</strong> từ quý được chọn
@@ -1236,6 +1241,31 @@
   </div>
 
 </main>
+
+<!-- ===== MODAL: CẢNH BÁO THÔNG TIN CẤP PHÁT ===== -->
+<div id="modal-canh-bao-nv" class="modal-overlay">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header" style="background:#fff3cd;border-bottom:1px solid #ffc107;">
+      <span class="modal-title" style="color:#856404;">⚠️ Cảnh báo dữ liệu cấp phát</span>
+      <button class="modal-close" onclick="closeModal('modal-canh-bao-nv')">×</button>
+    </div>
+    <div style="padding:16px 20px 8px;">
+      <div id="cb-nv-info" style="font-size:13.5px;font-weight:600;color:#333;margin-bottom:4px;"></div>
+      <div style="font-size:12.5px;color:#666;margin-bottom:14px;">
+        Các trang bị dưới đây có ngày cấp lần cuối không hợp lệ — tháng cấp tiếp theo đã qua mà chưa được cập nhật,
+        khiến trang bị <strong>không xuất hiện trong bất kỳ phiếu yêu cầu nào</strong>.
+      </div>
+      <div id="cb-nv-table"></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary" onclick="fixAllCanhBao()" style="background:#e67e22;border-color:#e67e22;font-size:13px;">
+          ⚡ Tự động sửa tất cả
+        </button>
+        <button class="btn btn-outline" onclick="closeModal('modal-canh-bao-nv')" style="font-size:13px;">Đóng</button>
+        <span style="font-size:12px;color:#888;margin-left:auto;">Sau khi sửa cần đồng bộ để lưu lên máy chủ.</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== MODAL: NHÂN VIÊN ===== -->
 <div id="modal-nv" class="modal-overlay">
@@ -2313,10 +2343,15 @@ function _nvRow(n, idx, showDrag, showNhomCol, donViFilter) {
   const canEdit = !isViewOnly() && (!_currentUnitUser || n.boPhan === _currentUnitUser.donVi);
   const draggable = showDrag && canEdit;
   const dragAttrs = draggable ? `draggable="true" data-nv-id="${n.id}"` : '';
+  const nvIssues = _validateNVThangCap(n);
+  const warnBtn = nvIssues.length > 0
+    ? `<button class="btn btn-sm" onclick="openCanhBaoNV(${n.id})" title="${nvIssues.length} trang bị có tháng cấp không hợp lệ"
+        style="margin-left:4px;background:#fff3cd;color:#856404;border:1.5px solid #ffc107;">⚠️</button>`
+    : '';
   const actionBtns = canEdit
     ? `<button class="btn btn-outline btn-sm" onclick="editNV(${n.id})">✏️</button>
-       <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteNV(${n.id})">🗑️</button>`
-    : `<span style="font-size:12px;color:var(--text-light);" title="Bạn không có quyền chỉnh sửa nhân viên đơn vị khác">🔒</span>`;
+       <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteNV(${n.id})">🗑️</button>${warnBtn}`
+    : `<span style="font-size:12px;color:var(--text-light);" title="Bạn không có quyền chỉnh sửa nhân viên đơn vị khác">🔒</span>${warnBtn}`;
   const sttCell = draggable
     ? `<td style="text-align:center;color:var(--text-light);font-size:13px;cursor:grab;user-select:none;" title="Kéo để sắp xếp">⠿ ${idx + 1}</td>`
     : `<td style="text-align:center;color:var(--text-light);font-size:13px;">${idx + 1}</td>`;
@@ -2359,6 +2394,156 @@ function _nvRow(n, idx, showDrag, showNhomCol, donViFilter) {
     <td style="text-align:center;">${n.chucDanh === 'Thợ hàn' ? _fThang(n.thangCapQAHan) : '<span style="color:var(--text-light);font-size:11px;">N/A</span>'}</td>
     <td style="text-align:center;">${actionBtns}</td>
   </tr>`;
+}
+
+// =====================================================
+//  CẢNH BÁO DỮ LIỆU CẤP PHÁT KHÔNG HỢP LỆ
+// =====================================================
+
+/** Cộng n tháng vào chuỗi "YYYY-MM", trả về "YYYY-MM" */
+function _addMonthsStr(ym, n) {
+  if (!ym || ym.length < 7) return ym;
+  const total = parseInt(ym.slice(0, 4)) * 12 + (parseInt(ym.slice(5, 7)) - 1) + Math.round(n);
+  return Math.floor(total / 12) + '-' + String((total % 12) + 1).padStart(2, '0');
+}
+
+/** "YYYY-MM" → "Tháng M/YYYY" */
+function _fThangLabel(ym) {
+  if (!ym) return '—';
+  return `Tháng ${parseInt(ym.slice(5, 7))}/${ym.slice(0, 4)}`;
+}
+
+/** Tháng đầu tiên của quý sớm nhất trong daQuyList (dạng "YYYY-MM") */
+function _getEarliestQuyFirstMonth() {
+  if (!daQuyList || daQuyList.length === 0) return null;
+  return getQuarterMonths(daQuyList[0])[0];
+}
+
+/**
+ * Kiểm tra dữ liệu thangCap* của 1 nhân viên.
+ * Trả về mảng issues: [{field, label, chuKy, lastMonth, nextMonth, suggested, suggestedNext}]
+ */
+function _validateNVThangCap(nv) {
+  if (!nv || nv.loaiNV === 'moi') return [];
+  const firstMonth = _getEarliestQuyFirstMonth();
+  if (!firstMonth) return [];
+
+  const dmList = daDinhMuc.filter(d => d.chucDanh === nv.chucDanh);
+  if (dmList.length === 0) return [];
+
+  // Map field → chu kỳ ngắn nhất trong định mức (skip bulk chuKy < 1)
+  const fieldMap = {};
+  dmList.forEach(d => {
+    if (d.chuKy < 1) return;
+    const tb = getTB(d.trangBiId);
+    if (!tb) return;
+    let field = null;
+    const nhom = tb.nhom || '';
+    if (tb.loai === 'Quần áo') {
+      if (nhom === 'Áo mưa')               field = 'thangCapAoMua';
+      else if (nhom === 'Bộ quần áo thợ hàn') field = 'thangCapQAHan';
+      else                                   field = 'thangCapQuanAo';
+    } else if (tb.loai === 'Giày dép')      field = 'thangCapGiay';
+    else if (tb.loai === 'Mũ nón')          field = 'thangCapNon';
+    else if (tb.loai === 'Bảo vệ mắt/mặt') field = 'thangCapKinh';
+    if (!field) return;
+    // Giữ chu kỳ ngắn nhất (gây cấp sớm nhất — dễ lỗi nhất)
+    if (!fieldMap[field] || d.chuKy < fieldMap[field]) fieldMap[field] = d.chuKy;
+  });
+
+  const LABELS = {
+    thangCapQuanAo: 'Quần áo',
+    thangCapQAHan:  'Quần áo thợ hàn',
+    thangCapAoMua:  'Áo mưa',
+    thangCapGiay:   'Giày dép',
+    thangCapNon:    'Mũ bảo hộ',
+    thangCapKinh:   'Kính bảo hộ',
+  };
+
+  const issues = [];
+  Object.entries(fieldMap).forEach(([field, chuKy]) => {
+    const lastMonth = nv[field];
+    if (!lastMonth) return; // chưa nhập → không kiểm tra
+    const nextMonth = _addMonthsStr(lastMonth, chuKy);
+    if (nextMonth >= firstMonth) return; // OK
+
+    // Tính ngày cấp đề xuất: cuộn về phía trước theo chu kỳ cho đến khi nextMonth hợp lệ
+    let suggested = lastMonth;
+    while (true) {
+      const candidate = _addMonthsStr(suggested, chuKy);
+      if (candidate >= firstMonth) break;
+      suggested = candidate;
+    }
+    issues.push({
+      field,
+      label:         LABELS[field] || field,
+      chuKy,
+      lastMonth,
+      nextMonth,        // tháng cấp tiếp theo hiện tại (không hợp lệ)
+      suggested,        // ngày cấp cuối đề xuất sau khi sửa
+      suggestedNext:    _addMonthsStr(suggested, chuKy), // tháng cấp tiếp theo sau sửa
+    });
+  });
+
+  return issues;
+}
+
+/** Mở modal cảnh báo cho nhân viên nvId */
+let _canhBaoNvId = null;
+function openCanhBaoNV(nvId) {
+  const nv = daNhanVien.find(x => x.id === nvId);
+  if (!nv) return;
+  _canhBaoNvId = nvId;
+  const issues = _validateNVThangCap(nv);
+
+  document.getElementById('cb-nv-info').textContent =
+    `${nv.ten} (${nv.ma}) — ${nv.chucDanh} — ${nv.boPhan || '—'}`;
+
+  const firstMonth = _getEarliestQuyFirstMonth();
+  const quyLabel = daQuyList[0] || '?';
+
+  const rows = issues.map(iss => `
+    <tr style="border-bottom:1px solid #f0e0b0;">
+      <td style="padding:8px 10px;font-weight:600;">${iss.label}</td>
+      <td style="padding:8px 10px;text-align:center;color:#c0392b;">${_fThangLabel(iss.lastMonth)}</td>
+      <td style="padding:8px 10px;text-align:center;color:#c0392b;">${_fThangLabel(iss.nextMonth)}</td>
+      <td style="padding:8px 10px;text-align:center;color:#27ae60;font-weight:600;">${_fThangLabel(iss.suggested)}</td>
+      <td style="padding:8px 10px;text-align:center;color:#27ae60;">${_fThangLabel(iss.suggestedNext)}</td>
+    </tr>`).join('');
+
+  document.getElementById('cb-nv-table').innerHTML = `
+    <div style="font-size:12px;color:#856404;background:#fff3cd;padding:8px 12px;border-radius:6px;margin-bottom:10px;">
+      Quý sớm nhất hệ thống cho phép: <strong>${quyLabel}</strong> (từ ${_fThangLabel(firstMonth)})
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f8d7da;color:#721c24;">
+          <th style="padding:7px 10px;text-align:left;">Trang bị</th>
+          <th style="padding:7px 10px;text-align:center;">Cấp cuối (hiện tại)</th>
+          <th style="padding:7px 10px;text-align:center;">Tiếp theo tính được</th>
+          <th style="padding:7px 10px;text-align:center;background:#d1eddf;color:#155724;">Cấp cuối (đề xuất)</th>
+          <th style="padding:7px 10px;text-align:center;background:#d1eddf;color:#155724;">Tiếp theo sau sửa</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  openModal('modal-canh-bao-nv');
+}
+
+/** Tự động sửa tất cả cảnh báo cho nhân viên đang xem */
+function fixAllCanhBao() {
+  if (!_canhBaoNvId) return;
+  const nv = daNhanVien.find(x => x.id === _canhBaoNvId);
+  if (!nv) return;
+  const issues = _validateNVThangCap(nv);
+  if (issues.length === 0) return;
+
+  issues.forEach(iss => { nv[iss.field] = iss.suggested; });
+  saveData('nhanvien', daNhanVien);
+  renderTableNV();
+  closeModal('modal-canh-bao-nv');
+  showToast(`✅ Đã sửa ${issues.length} trường cho ${nv.ten}. Nhớ đồng bộ để lưu lên máy chủ.`);
 }
 
 /** Gọi khi đổi filter đơn vị — cập nhật panel nhóm + bảng */
@@ -5090,14 +5275,10 @@ function initNhuCauPage() {
   const sel = document.getElementById('nhucau-quy-start');
   if (!sel) return;
 
-  // Tạo danh sách các quý tương lai (từ quý tiếp theo đến 12 quý sau)
+  // Dùng daQuyList (quý đã cấu hình bởi admin) — chỉ lấy quý từ hiện tại trở đi
   const curQ = getCurrentQuy();
-  const options = [];
-  let q = _nextQuy(curQ);
-  for (let i = 0; i < 12; i++) {
-    options.push(q);
-    q = _nextQuy(q);
-  }
+  const options = (daQuyList && daQuyList.length > 0 ? daQuyList : _defaultQuyList())
+    .filter(q => _compareQuy(q, curQ) >= 0);
 
   const prevVal = sel.value;
   sel.innerHTML = '<option value="">-- Chọn quý bắt đầu --</option>';
@@ -5107,7 +5288,13 @@ function initNhuCauPage() {
     opt.textContent = qStr;
     sel.appendChild(opt);
   });
-  if (prevVal && options.includes(prevVal)) sel.value = prevVal;
+
+  // Mặc định: chọn quý đầu tiên trong daQuyList (>= quý hiện tại)
+  if (prevVal && options.includes(prevVal)) {
+    sel.value = prevVal;
+  } else if (options.length > 0) {
+    sel.value = options[0];
+  }
 
   // Reset kết quả
   document.getElementById('nhucau-result').innerHTML = '';
@@ -5115,19 +5302,50 @@ function initNhuCauPage() {
   document.getElementById('btn-export-nhucau').style.display = 'none';
 }
 
+/** Tự động chọn chu kỳ hợp lệ gần nhất (quý đầu tiên trong daQuyList >= quý hiện tại) */
+function autoSelectNearestQuy() {
+  const sel = document.getElementById('nhucau-quy-start');
+  if (!sel) return;
+  const curQ = getCurrentQuy();
+  const list = (daQuyList && daQuyList.length > 0 ? daQuyList : _defaultQuyList());
+  // Tìm quý gần nhất >= quý hiện tại
+  const nearest = list.find(q => _compareQuy(q, curQ) >= 0);
+  if (nearest) {
+    // Đảm bảo option có trong dropdown
+    const opts = Array.from(sel.options).map(o => o.value);
+    if (opts.includes(nearest)) {
+      sel.value = nearest;
+      showToast('✅ Đã chọn chu kỳ gần nhất: ' + nearest, 'success');
+    } else {
+      // Thêm nếu chưa có
+      const opt = document.createElement('option');
+      opt.value = nearest;
+      opt.textContent = nearest;
+      sel.appendChild(opt);
+      sel.value = nearest;
+      showToast('✅ Đã chọn chu kỳ gần nhất: ' + nearest, 'success');
+    }
+  } else {
+    showToast('Không tìm thấy chu kỳ hợp lệ trong danh sách quý.', 'error');
+  }
+}
+
 /**
  * Tính nhu cầu mua sắm cho 4 quý liên tiếp bắt đầu từ quý được chọn.
  * Kết quả: mỗi hàng là một trang bị, cột = từng đơn vị + tổng + tồn kho + cần mua thêm.
  */
 function tinhNhuCau() {
-  if (!_adminLoggedIn) { showToast('Chỉ admin mới được tính nhu cầu mua sắm.', 'error'); return; }
+  // Cả admin lẫn người dùng đơn vị đều có thể tính nhu cầu mua sắm
+  if (!_adminLoggedIn && !_currentUnitUser) {
+    showToast('Vui lòng đăng nhập để sử dụng tính năng này.', 'error'); return;
+  }
   const startQ = document.getElementById('nhucau-quy-start').value;
   if (!startQ) { showToast('Vui lòng chọn quý bắt đầu.', 'error'); return; }
 
-  // Kiểm tra phải sau quý hiện tại
+  // Kiểm tra phải từ quý hiện tại trở đi
   const curQ = getCurrentQuy();
-  if (_compareQuy(startQ, curQ) <= 0) {
-    showToast('Quý bắt đầu phải sau quý hiện tại (' + curQ + ').', 'error');
+  if (_compareQuy(startQ, curQ) < 0) {
+    showToast('Quý bắt đầu không được trước quý hiện tại (' + curQ + ').', 'error');
     return;
   }
 
@@ -6273,6 +6491,20 @@ const LOAI_TO_THANG_CAP = {
   'Bảo vệ mắt/mặt':  'thangCapKinh',
 };
 
+/**
+ * Xác định trường thangCap* đúng cho một trang bị,
+ * có nhận biết nhóm con trong loại 'Quần áo'.
+ */
+function _getThangCapField(tb) {
+  if (!tb) return null;
+  if (tb.loai === 'Quần áo') {
+    if (tb.nhom === 'Bộ quần áo thợ hàn') return 'thangCapQAHan';
+    if (tb.nhom === 'Áo mưa')             return 'thangCapAoMua';
+    return 'thangCapQuanAo'; // QA rời, áo liền quần, QA nữ — đều dùng chung field này
+  }
+  return LOAI_TO_THANG_CAP[tb.loai] || null;
+}
+
 let _phieuRequestList = [];
 
 async function loadPhieuRequestList() {
@@ -6775,6 +7007,8 @@ async function reapplyPhieuDates(id) {
   const snapshot = r.snapshot || {};
   let updatedCount = 0;
 
+  const reapplyQuyMonths = getQuarterMonths(r.quyStr);
+
   const nvUpdateMap = {};
   Object.entries(snapshot).forEach(([key, val]) => {
     if (!val.thucTe || val.thucTe <= 0) return;
@@ -6782,7 +7016,7 @@ async function reapplyPhieuDates(id) {
     const tbId = parseInt(tbIdStr);
     const tb = getTB(tbId);
     if (!tb) return;
-    const field = LOAI_TO_THANG_CAP[tb.loai];
+    const field = _getThangCapField(tb);
     if (!field) return;
     if (!nvUpdateMap[nvId]) nvUpdateMap[nvId] = {};
     if (!nvUpdateMap[nvId][field]) nvUpdateMap[nvId][field] = tbId;
@@ -6792,18 +7026,30 @@ async function reapplyPhieuDates(id) {
     const nv = daNhanVien.find(n => String(n.id) === nvId);
     if (!nv) return;
     Object.entries(fieldMap).forEach(([field, tbId]) => {
-      // Tìm dmEntry theo tbId, nếu không thấy thì tìm theo nhom (quần áo/giày có nhiều cỡ)
       let dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
       if (!dmEntry) {
         const tbItem = getTB(tbId);
-        if (tbItem && tbItem.nhom) {
-          const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
-          dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+        if (tbItem) {
+          if (tbItem.loai === 'Quần áo'
+              && tbItem.nhom !== 'Áo mưa'
+              && tbItem.nhom !== 'Bộ quần áo thợ hàn') {
+            const qaIds = daDanhMuc
+              .filter(d => d.loai === 'Quần áo'
+                        && d.nhom !== 'Áo mưa'
+                        && d.nhom !== 'Bộ quần áo thợ hàn')
+              .map(d => d.id);
+            dmEntry = daDinhMuc.find(d => qaIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+          }
+          if (!dmEntry && tbItem.nhom) {
+            const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
+            dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+          }
         }
       }
       if (!dmEntry) return;
       const schedDate = tinhThangCapTiepTheo(nv, dmEntry);
       if (!schedDate || schedDate === 'quarterly') return;
+      if (!reapplyQuyMonths.includes(schedDate)) return;
       nv[field] = schedDate;
       updatedCount++;
     });
@@ -7044,6 +7290,9 @@ async function approvePhieuRequest(id) {
   const snapshot = r.snapshot || {};
   let updatedCount = 0;
 
+  // Danh sách tháng hợp lệ của quý đang duyệt — dùng để kiểm tra lỗi 1
+  const quyMonths = getQuarterMonths(r.quyStr);
+
   // Gom nhóm theo nhân viên: nvId → { field → tbId đầu tiên tìm được }
   // (mỗi field chỉ cần 1 tbId đại diện để tra định mức và tính tháng cấp)
   const nvUpdateMap = {};
@@ -7053,7 +7302,8 @@ async function approvePhieuRequest(id) {
     const tbId = parseInt(tbIdStr);
     const tb = getTB(tbId);
     if (!tb) return;
-    const field = LOAI_TO_THANG_CAP[tb.loai];
+    // Dùng _getThangCapField thay vì LOAI_TO_THANG_CAP để phân biệt áo mưa / QA thợ hàn
+    const field = _getThangCapField(tb);
     if (!field) return;
     if (!nvUpdateMap[nvId]) nvUpdateMap[nvId] = {};
     if (!nvUpdateMap[nvId][field]) nvUpdateMap[nvId][field] = tbId; // lưu tbId đại diện
@@ -7067,20 +7317,37 @@ async function approvePhieuRequest(id) {
       // Tìm dmEntry: trước tiên theo tbId chính xác
       let dmEntry = daDinhMuc.find(d => d.trangBiId === tbId && d.chucDanh === nv.chucDanh);
 
-      // Nếu không thấy (vd: quần áo/giày có nhiều cỡ, daDinhMuc lưu cỡ gốc khác id),
-      // thì tìm qua nhom — bất kỳ item cùng nhom nào có định mức cho chức danh này
+      // Fallback khi tbId là item có cỡ (daDinhMuc lưu id gốc, không có cỡ)
       if (!dmEntry) {
         const tbItem = getTB(tbId);
-        if (tbItem && tbItem.nhom) {
-          const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
-          dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+        if (tbItem) {
+          // Fallback đặc biệt cho quần áo nữ: nhom='Bộ quần áo nữ' không tồn tại trong daDinhMuc.
+          // Tìm bất kỳ dmEntry nào có loai='Quần áo' (không phải áo mưa / QA thợ hàn) cho chức danh này.
+          if (tbItem.loai === 'Quần áo'
+              && tbItem.nhom !== 'Áo mưa'
+              && tbItem.nhom !== 'Bộ quần áo thợ hàn') {
+            const qaIds = daDanhMuc
+              .filter(d => d.loai === 'Quần áo'
+                        && d.nhom !== 'Áo mưa'
+                        && d.nhom !== 'Bộ quần áo thợ hàn')
+              .map(d => d.id);
+            dmEntry = daDinhMuc.find(d => qaIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+          }
+          // Fallback thông thường: tìm theo nhom khớp chính xác
+          if (!dmEntry && tbItem.nhom) {
+            const nhomIds = daDanhMuc.filter(d => d.nhom === tbItem.nhom).map(d => d.id);
+            dmEntry = daDinhMuc.find(d => nhomIds.includes(d.trangBiId) && d.chucDanh === nv.chucDanh);
+          }
         }
       }
 
       if (!dmEntry) return;
-      // Lấy đúng tháng theo lịch cấp (tháng gần nhất phù hợp với chu kỳ định mức)
+      // Tính tháng cấp dự kiến = thangCap hiện tại + chu kỳ
       const schedDate = tinhThangCapTiepTheo(nv, dmEntry);
       if (!schedDate || schedDate === 'quarterly') return;
+      // ★ Kiểm tra quý (lỗi 1): chỉ cập nhật nếu tháng dự kiến thuộc quý đang duyệt.
+      // Ngăn trường hợp item không đến hạn trong quý này bị ghi nhận sai.
+      if (!quyMonths.includes(schedDate)) return;
       nv[field] = schedDate;
       updatedCount++;
     });
